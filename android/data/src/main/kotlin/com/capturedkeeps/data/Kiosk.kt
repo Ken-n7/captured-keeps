@@ -6,7 +6,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.time.Duration
 import java.time.Instant
 
 /** What the kiosk is showing. Screens only draw this and call [KioskFlow] actions. */
@@ -36,12 +35,11 @@ class KioskFlow(
     private val deviceId: String,
     private val freeBytes: () -> Long,
     private val now: () -> Instant = Instant::now,
+    private val gate: Gate = Gate(now),
 ) {
     private val _state = MutableStateFlow<KioskState>(KioskState.Idle)
     val state: StateFlow<KioskState> = _state
     private val lock = Mutex() // double taps can't run two actions at once
-    private var wrongPins = 0
-    private var pinLockedUntil = Instant.MIN
 
     private suspend fun act(block: suspend (KioskState) -> KioskState?) = lock.withLock {
         val next = try {
@@ -101,17 +99,7 @@ class KioskFlow(
         begin(s.event, s.pkg, sale, isNew = false)
     }
 
-    private suspend fun checkPin(pin: String): Staff {
-        val wait = Duration.between(now(), pinLockedUntil).seconds
-        if (wait > 0) throw RuleBroken("Too many wrong PINs. Try again in $wait s.")
-        val staff = store.staffByPin(pin)
-        if (staff == null) {
-            if (++wrongPins >= MAX_WRONG_PINS) { pinLockedUntil = now().plus(PIN_LOCK); wrongPins = 0 }
-            throw RuleBroken("Wrong PIN")
-        }
-        wrongPins = 0
-        return staff
-    }
+    private suspend fun checkPin(pin: String) = gate.check { store.staffByPin(pin) }
 
     private suspend fun begin(event: Event, pkg: SessionPackage, sale: LedgerEntry.Sale?, isNew: Boolean): KioskState {
         val layout = event.layoutIds.firstNotNullOfOrNull { id -> StripLayout.PRESETS.find { it.id == id } }
@@ -196,10 +184,5 @@ class KioskFlow(
             is KioskState.Review -> if (s.session.saleId == null) end(s.session, EndReason.TIMEOUT, null) else null
             else -> null
         }
-    }
-
-    companion object {
-        const val MAX_WRONG_PINS = 5
-        val PIN_LOCK: Duration = Duration.ofSeconds(60)
     }
 }

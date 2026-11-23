@@ -214,4 +214,28 @@ class DomainTest {
         broken { Pin.hash("12") }
         broken { Pin.hash("12ab") }
     }
+
+    @Test fun `owner passwords need 8+ characters`() {
+        broken { Pin.hashPassword("short") }
+        assertTrue(Pin.matches("long enough", Pin.hashPassword("long enough")))
+    }
+
+    @Test fun `per-event ledger and CSV export`() {
+        var l = Ledger()
+        val other = paid.copy(id = "other")
+        val sale = l.sale(paid, "basic", PaymentPath.CASH_VIA_STAFF, ana, now, Centavos.pesos(200), "REF-0001").also { l += it }
+        l += l.sale(other, "basic", PaymentPath.CUSTOMER_QR, ana, now)
+        l += l.refund(sale.id, Centavos.pesos(50), owner, "jam, \"smudged\"", now)
+
+        val mine = l.forEvent(paid.id)
+        assertEquals(2, mine.entries.size)
+        assertEquals(Centavos.pesos(100), mine.summary().net)
+
+        val csv = mine.toCsv(mapOf(ana.id to "Ana", owner.id to "Owner", "basic" to "=Basic"), java.time.ZoneOffset.UTC)
+        val lines = csv.trimEnd().split("\r\n")
+        assertEquals(3, lines.size)
+        assertTrue(lines[1].startsWith("2026-11-23 10:00:00,sale,'=Basic,150.00,cash_via_staff,200.00,50.00,REF-0001,Ana,Ana,"))
+        assertTrue(",refund,,-50.00," in lines[2])
+        assertTrue("\"jam, \"\"smudged\"\"\"" in lines[2])
+    }
 }

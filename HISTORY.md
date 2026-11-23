@@ -102,3 +102,18 @@
   - Fixed: staff column didn't scroll on a short screen (confirm button hidden).
 - Tests: 52 passing (core 27, data 13, app 12 incl. 11 screenshots). `DEVICE_TESTING.md` updated with phone results.
 - Not yet: idle video, event welcome text on idle, QR image on payment screen, PIN-gated staff menu, "Did it print?" prompt after a crash, real printer.
+
+## 2026-11-23 — Owner/admin screens (build order step 6)
+
+- Committed step 5 as `83572d4`.
+- `core`: owner passwords (8+ chars, hashed like PINs); `Ledger.forEvent`; CSV export (RFC 4180 quoting, spreadsheet-formula guard, names instead of ids).
+- `data`:
+  - Staff table gained `passwordHash`; `needsSetup`, `ownerByPassword`.
+  - `Gate`: one wrong-PIN/password lockout shared by payment and login. `login()` gives owner tools **only** via the owner password — the owner's PIN alone opens attendant tools.
+  - `moveEvent` (one live event, audited), `printsToConfirm`/`resolvePrint`/`failedPrints`/`retryPrint` (virtual printer for now).
+  - Demo seeding removed — first launch asks for the owner account instead.
+  - Schema v1 regenerated again (phone test data wiped with an uninstall). **From the first real event on, schema changes need migrations.**
+- `app`: setup, login, staff menu (attendant: totals, check prints; owner: + events, staff, print tuning, lock/unlock booth), totals with cash held per staff and missing-reference warning, CSV export via Android's save dialog, event editor, staff editor. Staff screens close after 3 min untouched.
+- On the phone: created owner → booth blocked (no live event) → created "Test Party" + package → go live → added attendant Ana → cash sale ₱200/₱150 confirmed with Ana's PIN → totals "Ana: ₱150.00" → CSV saved and checked → Ana sees attendant tools only → killed app mid-print → "Did it print?" → No → Print again → completed. Test CSV removed from the phone afterwards.
+- Tests: 62 passing (core 29, data 17, app 16 screenshots + 1 strip render).
+- Not yet: idle video, payment QR image, layout editor/saved tuning, void/refund screens, disable staff, event dates, real printer, owner password reset.

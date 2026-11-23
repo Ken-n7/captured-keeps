@@ -19,6 +19,13 @@ class KioskTest {
 
     @AfterTest fun close() = db.close()
 
+    private suspend fun Store.seedDemoIfEmpty() {
+        saveStaff(Staff(name = "Owner", role = Role.OWNER), pin = "1234")
+        saveEvent(Event(name = "Demo Event", type = EventType.PAID, status = EventStatus.LIVE,
+            packages = listOf(SessionPackage(name = "Classic", price = Centavos.pesos(150))),
+            layoutIds = StripLayout.PRESETS.map { it.id }))
+    }
+
     private fun test(block: suspend () -> Unit) = runBlocking { block() }
     private inline fun <reified T : KioskState> state() = assertIs<T>(kiosk.state.value)
 
@@ -65,7 +72,7 @@ class KioskTest {
         state<KioskState.Payment>()
 
         kiosk.confirmPayment(PaymentPath.CASH_VIA_STAFF, "9999", "200", null)
-        assertEquals("Wrong PIN", state<KioskState.Payment>().error)
+        assertEquals("Wrong PIN or password", state<KioskState.Payment>().error)
         kiosk.confirmPayment(PaymentPath.CASH_VIA_STAFF, "1234", "100", null)
         assertTrue("less than the price" in state<KioskState.Payment>().error!!)
         assertTrue(store.ledger().entries.isEmpty())
@@ -83,9 +90,9 @@ class KioskTest {
     @Test fun `five wrong PINs lock payment for a minute`() = test {
         store.seedDemoIfEmpty()
         kiosk.start(); kiosk.choose(store.liveEvent()!!.packages.first().id)
-        repeat(KioskFlow.MAX_WRONG_PINS) { kiosk.confirmPayment(PaymentPath.CUSTOMER_QR, "0000", null, null) }
+        repeat(Gate.MAX_WRONG) { kiosk.confirmPayment(PaymentPath.CUSTOMER_QR, "0000", null, null) }
         kiosk.confirmPayment(PaymentPath.CUSTOMER_QR, "1234", null, null)
-        assertTrue("Too many wrong PINs" in state<KioskState.Payment>().error!!)
+        assertTrue("Too many wrong tries" in state<KioskState.Payment>().error!!)
         clock = clock.plusSeconds(61)
         kiosk.confirmPayment(PaymentPath.CUSTOMER_QR, "1234", null, null)
         state<KioskState.Capturing>()
@@ -127,7 +134,7 @@ class KioskTest {
         restarted.start(); restarted.choose(pkg.id)
         val unused = assertIs<KioskState.Payment>(restarted.state.value).unused.single()
         restarted.resumePayment(unused.id, "9999")
-        assertEquals("Wrong PIN", assertIs<KioskState.Payment>(restarted.state.value).error)
+        assertEquals("Wrong PIN or password", assertIs<KioskState.Payment>(restarted.state.value).error)
         restarted.resumePayment(unused.id, "1234")
         assertIs<KioskState.Capturing>(restarted.state.value)
         assertEquals(1, store.ledger().sales.size) // no second charge

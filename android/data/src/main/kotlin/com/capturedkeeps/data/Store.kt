@@ -3,7 +3,6 @@ package com.capturedkeeps.data
 import androidx.room.immediateTransaction
 import androidx.room.useWriterConnection
 import com.capturedkeeps.core.domain.*
-import com.capturedkeeps.core.print.StripLayout
 import java.time.Instant
 
 /** The app's only way to read/write records. Domain rules run first, then rows are saved. */
@@ -13,14 +12,23 @@ class Store(private val db: CkDatabase) {
     private suspend fun <T> tx(block: suspend () -> T): T =
         db.useWriterConnection { it.immediateTransaction { block() } }
 
-    /** [pin] null keeps the current PIN. */
-    suspend fun saveStaff(staff: Staff, pin: String? = null) =
-        dao.saveStaff(staff.row(pin?.let(Pin::hash) ?: dao.staffRow(staff.id)?.pinHash))
+    /** Null [pin]/[password] keeps the current one. Only owners have a password. */
+    suspend fun saveStaff(staff: Staff, pin: String? = null, password: String? = null) {
+        if (password != null && staff.role != Role.OWNER) throw RuleBroken("Only the owner has a password")
+        val old = dao.staffRow(staff.id)
+        dao.saveStaff(StaffRow(staff.id, staff.name, staff.role.name,
+            pin?.let(Pin::hash) ?: old?.pinHash, password?.let(Pin::hashPassword) ?: old?.passwordHash))
+    }
     suspend fun staff() = dao.staff().map { it.domain() }
+
+    /** First run: no owner can log in yet. */
+    suspend fun needsSetup() = dao.staff().none { it.role == Role.OWNER.name && it.passwordHash != null }
 
     // ponytail: checks every staff hash (~20 ms each); fine for a handful of staff.
     suspend fun staffByPin(pin: String): Staff? =
         dao.staff().firstOrNull { it.pinHash != null && Pin.matches(pin, it.pinHash) }?.domain()
+    suspend fun ownerByPassword(password: String): Staff? =
+        dao.staff().firstOrNull { it.passwordHash != null && Pin.matches(password, it.passwordHash) }?.domain()
 
     suspend fun liveEvent() = events().firstOrNull { it.status == EventStatus.LIVE }
 
@@ -38,16 +46,16 @@ class Store(private val db: CkDatabase) {
         saved
     }
 
-    /** ponytail: demo data (owner PIN 1234 + a live paid event) until the admin screens exist — delete then. */
-    suspend fun seedDemoIfEmpty() {
-        if (dao.eventRows().isNotEmpty()) return
-        saveStaff(Staff(name = "Owner", role = Role.OWNER), pin = "1234")
-        saveEvent(Event(name = "Demo Event", type = EventType.PAID, status = EventStatus.LIVE,
-            packages = listOf(
-                SessionPackage(name = "Classic", price = Centavos.pesos(150), copies = 1, retakes = 2),
-                SessionPackage(name = "Duo", price = Centavos.pesos(250), copies = 2, retakes = 2),
-            ),
-            layoutIds = StripLayout.PRESETS.map { it.id }))
+    /** Go live / pause / finish / cancel / archive, checked against the other events and audited. */
+    suspend fun moveEvent(id: String, to: EventStatus?, by: Staff, at: Instant, mediaPlayable: Boolean = false): Event = tx {
+        val e = event(id) ?: throw RuleBroken("Event not found")
+        val anotherLive = dao.eventRows().any { it.id != id && it.status == EventStatus.LIVE.name }
+        val moved = if (to == null) e.hide() else e.moveTo(to, anotherLive, mediaPlayable)
+        dao.saveEventRow(moved.row())
+        val field = if (to == null) "hidden" else "status"
+        val (old, new) = if (to == null) "false" to "true" else e.status.label to to.label
+        dao.appendAudit(listOf(AuditEntry(at = at, byStaffId = by.id, entity = "event", entityId = id, field = field, oldValue = old, newValue = new).row()))
+        moved
     }
 
     suspend fun audit(entityId: String) = dao.audit(entityId).map { it.domain() }
@@ -76,6 +84,34 @@ class Store(private val db: CkDatabase) {
     suspend fun savePrintJob(job: PrintJob) = dao.savePrintJob(job.row())
     suspend fun printJobs(sessionId: String) = dao.printJobs(sessionId).map { it.domain() }
     suspend fun openPrintJobs() = dao.openPrintJobs().map { it.domain() }
+
+    /** Prints that were mid-send when the app died: staff must say whether they came out. */
+    suspend fun printsToConfirm() = dao.openPrintJobs().map { it.domain() }.filter { it.state == PrintState.UNKNOWN }
+
+    /** Staff answered "Did it print?". Yes completes the session; no leaves it failed for a retry. */
+    suspend fun resolvePrint(jobId: String, printed: Boolean, at: Instant) = tx {
+        val job = dao.printJob(jobId)?.domain() ?: throw RuleBroken("Print not found")
+        dao.savePrintJob(job.resolveUnknown(printed).row())
+        if (printed) completeSession(job.sessionId, at)
+    }
+
+    /** Failed prints still waiting for a retry. */
+    suspend fun failedPrints() = dao.openPrintJobs().map { it.domain() }.filter { it.state == PrintState.FAILED }
+
+    /**
+     * Retry a failed print. ponytail: virtual printer — marks it printed at once;
+     * the real printer step sends it and reports back instead.
+     */
+    suspend fun retryPrint(jobId: String, at: Instant) = tx {
+        val job = dao.printJob(jobId)?.domain() ?: throw RuleBroken("Print not found")
+        dao.savePrintJob(job.retry().send().done().row())
+        completeSession(job.sessionId, at)
+    }
+
+    private suspend fun completeSession(sessionId: String, at: Instant) {
+        val session = dao.session(sessionId)?.domain() ?: return
+        if (session.state == SessionState.PRINTING) dao.updateSession(session.complete(at).row())
+    }
 
     /** Call once at app start. Returns prints the attendant must confirm ("Did it print?"). */
     suspend fun recoverAfterRestart(at: Instant): Recovery = tx {

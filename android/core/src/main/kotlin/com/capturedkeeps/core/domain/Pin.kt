@@ -6,15 +6,20 @@ import java.util.Base64
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 
-/** Staff PINs are stored only as salted PBKDF2 hashes: "pbkdf2$iterations$salt$hash". */
+/** Staff PINs and owner passwords are stored only as salted PBKDF2 hashes: "pbkdf2$iterations$salt$hash". */
 object Pin {
     private const val ITERATIONS = 20_000
     private val b64 = Base64.getEncoder()
 
     fun validate(pin: String) = rule(pin.length in 4..6 && pin.all { it in '0'..'9' }) { "PIN must be 4 to 6 digits" }
 
-    fun hash(pin: String): String {
-        validate(pin)
+    fun validatePassword(password: String) =
+        rule(password.length >= 8) { "Password must be at least 8 characters" }
+
+    fun hash(pin: String): String = validate(pin).let { raw(pin) }
+    fun hashPassword(password: String): String = validatePassword(password).let { raw(password) }
+
+    private fun raw(pin: String): String {
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
         return "pbkdf2\$$ITERATIONS\$${b64.encodeToString(salt)}\$${b64.encodeToString(derive(pin, salt, ITERATIONS))}"
     }

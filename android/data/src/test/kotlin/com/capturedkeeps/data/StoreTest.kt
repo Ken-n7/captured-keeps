@@ -111,4 +111,61 @@ class StoreTest {
             d.close()
         }
     }
+
+    @Test fun `owner setup, password and PIN login`() = test {
+        assertTrue(store.needsSetup())
+        store.saveStaff(owner, pin = "4321", password = "correct horse")
+        store.saveStaff(ana, pin = "1111")
+        assertFalse(store.needsSetup())
+        assertFailsWith<RuleBroken> { store.saveStaff(ana, password = "attendants have none") }
+        assertEquals(owner, store.ownerByPassword("correct horse"))
+        assertNull(store.ownerByPassword("4321"))
+        assertEquals(ana, store.staffByPin("1111"))
+        store.saveStaff(ana.copy(name = "Ana R.")) // rename keeps the PIN
+        assertEquals("Ana R.", store.staffByPin("1111")!!.name)
+    }
+
+    @Test fun `staff resolve prints left unknown by a crash`() = test {
+        store.saveEvent(event)
+        val sale1 = paidSale(); val sale2 = paidSale()
+        val a = session(sale1).beginCapture().review().print()
+        val b = session(sale2).beginCapture().review().print()
+        for (s in listOf(a, b)) { store.startSession(s.copy(state = SessionState.STARTED)); store.updateSession(s) }
+        val ja = PrintJob(sessionId = a.id, imagePath = "/a.png", copies = 1, createdAt = now).send()
+        val jb = PrintJob(sessionId = b.id, imagePath = "/b.png", copies = 1, createdAt = now).send()
+        store.savePrintJob(ja); store.savePrintJob(jb)
+        store.recoverAfterRestart(now)
+        assertEquals(setOf(ja.id, jb.id), store.printsToConfirm().map { it.id }.toSet())
+
+        store.resolvePrint(ja.id, printed = true, now)
+        assertEquals(SessionState.COMPLETED, store.session(a.id)!!.state)
+        store.resolvePrint(jb.id, printed = false, now)
+        assertEquals(listOf(jb.id), store.failedPrints().map { it.id })
+        assertEquals(SessionState.PRINTING, store.session(b.id)!!.state)
+        store.retryPrint(jb.id, now)
+        assertEquals(SessionState.COMPLETED, store.session(b.id)!!.state)
+        assertTrue(store.printsToConfirm().isEmpty() && store.failedPrints().isEmpty())
+    }
+
+    @Test fun `login unlocks owner tools only with the password`() = test {
+        store.saveStaff(owner, pin = "4321", password = "correct horse")
+        store.saveStaff(ana, pin = "1111")
+        val gate = Gate { now }
+        assertEquals(Login(owner, ownerTools = true), gate.login(store, "correct horse"))
+        assertEquals(Login(owner, ownerTools = false), gate.login(store, "4321"))
+        assertEquals(Login(ana, ownerTools = false), gate.login(store, "1111"))
+        assertFailsWith<RuleBroken> { gate.login(store, "nope") }
+    }
+
+    @Test fun `event moves are checked and audited`() = test {
+        val draft = event.copy(status = EventStatus.DRAFT)
+        val other = event.copy(id = "other", name = "Other", status = EventStatus.DRAFT, packages = listOf(SessionPackage(name = "X", price = Centavos.pesos(99))))
+        store.saveEvent(draft); store.saveEvent(other)
+        store.moveEvent(draft.id, EventStatus.LIVE, owner, now)
+        assertTrue("already live" in assertFailsWith<RuleBroken> { store.moveEvent(other.id, EventStatus.LIVE, owner, now) }.message!!)
+        store.moveEvent(draft.id, EventStatus.COMPLETED, owner, now)
+        store.moveEvent(draft.id, null, owner, now)
+        assertTrue(store.event(draft.id)!!.hidden)
+        assertEquals(listOf("draft→live", "live→completed", "false→true"), store.audit(draft.id).map { "${it.oldValue}→${it.newValue}" })
+    }
 }

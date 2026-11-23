@@ -23,12 +23,13 @@ Legend: ⏳ not built yet · 🔨 built, waiting for device · ✅ verified on d
 | A9 | Inactivity timeout returns to idle | 🔨 | 60 s on package/review screens, 120 s payment, 20 s done; paid sessions never time out |
 | A10 | Records saved to on-device database survive app kill + phone restart | ✅ | Survived force-stop (Realme 3 Pro, Android 11, 2026-11-23); phone reboot not tried yet |
 | A11 | Force-close mid-capture → session cancelled, paid customer can resume without paying again | ✅ | Force-stop mid-capture → session cancelled (APP_RESTART); staff resumed the payment with PIN, no second sale (Realme 3 Pro, Android 11, 2026-11-23) |
-| A12 | Force-close mid-print → attendant asked "Did it print?", no auto-reprint | ⏳ | Logic unit-tested |
+| A12 | Force-close mid-print → attendant asked "Did it print?", no auto-reprint | ✅ | Killed during print → staff "Check prints" asked; "No" → "Print again" → done on attempt 2 (Realme 3 Pro, 2026-11-23) |
 | A13 | Low storage warning (< 2 GB) and session block (< 500 MB) | ⏳ | Fill storage with a dummy file |
-| A14 | Screen pinning keeps customers inside the app; admin exit works | ⏳ | |
-| A15 | Attendant PIN unlock / owner login | 🔨 | Attendant PIN for payment ✅ (Realme 3 Pro, Android 11, 2026-11-23). Owner login comes with admin screens |
+| A14 | Screen pinning keeps customers inside the app; admin exit works | 🔨 | Owner menu "Lock booth"/"Unlock booth" (Android screen pinning) — not tried yet |
+| A15 | Attendant PIN unlock / owner login | ✅ | First-run owner setup, owner password → owner tools, attendant PIN → attendant tools only (Realme 3 Pro, 2026-11-23) |
 | A16 | Airplane mode: full free-event flow still works | ⏳ | |
-| A17 | CSV export opens in a spreadsheet app | ⏳ | |
+| A17 | CSV export opens in a spreadsheet app | ✅ | Saved via Android save dialog to Downloads; contents checked on the laptop (Realme 3 Pro, 2026-11-23). Not yet opened in a spreadsheet app |
+| A18 | Event created on device → go live → paid cash session → totals show cash held by the attendant | ✅ | Realme 3 Pro, 2026-11-23 |
 
 ## B. Galaxy Tab A11 (when it arrives)
 

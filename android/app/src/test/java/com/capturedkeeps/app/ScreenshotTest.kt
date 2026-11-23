@@ -63,6 +63,25 @@ class ScreenshotTest {
     @Test fun kioskBlocked() = kiosk { Message("Please call staff", "No event is live. Please call staff.") { Button({}) { Text("Try again") } } }
     @Test fun kioskCameraPermission() = kiosk { CameraPermissionNeeded(asked = true, {}, {}, {}) }
 
+    // ── Staff ──
+    private val ana = Staff(name = "Ana", role = Role.ATTENDANT)
+    private val owner = Staff(name = "Owner", role = Role.OWNER)
+
+    @Test fun staffSetup() = kiosk { SetupScreen("PIN must be 4 to 6 digits") { _, _, _ -> } }
+    @Test fun staffLogin() = kiosk { LoginScreen("Wrong PIN or password", {}, {}) }
+    @Test fun staffTotals() = kiosk {
+        val now = java.time.Instant.parse("2026-11-23T10:00:00Z")
+        var l = Ledger()
+        l += l.sale(event, event.packages[0].id, PaymentPath.CASH_VIA_STAFF, ana, now, Centavos.pesos(200), "REF-1")
+        l += l.sale(event, event.packages[1].id, PaymentPath.CUSTOMER_QR, owner, now)
+        TotalsPage(listOf(event), EventTotals(event, l.summary(), 2, 3, mapOf(ana.id to "Ana", owner.id to "Owner")), {}, {}, {}, null)
+    }
+    @Test fun staffEvents() = kiosk {
+        EventsPage(listOf(event, event.copy(id = "d", name = "Debut Party", status = EventStatus.DRAFT, packages = emptyList())),
+            null, {}, {}, {}, { _, _ -> })
+    }
+    @Test fun staffEventEditor() = kiosk { EventEditor(event, null, {}, {}) }
+
     /** Full-size strips drawn with Android Canvas → app/build/samples, to compare with core/build/samples. */
     @Test fun androidStrips() {
         val out = File("build/samples").apply { mkdirs() }

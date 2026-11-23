@@ -3,6 +3,7 @@ package com.capturedkeeps.app
 import android.app.Application
 import androidx.room.Room
 import com.capturedkeeps.data.CkDatabase
+import com.capturedkeeps.data.Gate
 import com.capturedkeeps.data.KioskFlow
 import com.capturedkeeps.data.Store
 import com.capturedkeeps.data.open
@@ -20,7 +21,10 @@ class App : Application() {
 
     val store by lazy { Store(Room.databaseBuilder<CkDatabase>(this, getDatabasePath("captured-keeps.db").path).open()) }
 
-    val kiosk by lazy { KioskFlow(store, deviceId, freeBytes = { filesDir.usableSpace }) }
+    /** One lockout for payment PINs and staff login, so guesses add up across both. */
+    val gate = Gate()
+
+    val kiosk by lazy { KioskFlow(store, deviceId, freeBytes = { filesDir.usableSpace }, gate = gate) }
 
     /** Stable per install; goes on every session so records from several booths can be merged later. */
     private val deviceId by lazy {
@@ -29,9 +33,6 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        scope.launch {
-            store.seedDemoIfEmpty()
-            store.recoverAfterRestart(Instant.now()) // ponytail: "Did it print?" prompts come with the staff screens
-        }
+        scope.launch { store.recoverAfterRestart(Instant.now()) } // unknown prints show in staff "Check prints"
     }
 }

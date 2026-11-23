@@ -132,6 +132,38 @@ class Ledger(val entries: List<LedgerEntry> = emptyList()) {
         return LedgerEntry.Refund(at = at, byStaffId = by.id, saleId = saleId, amount = amount, reason = reason.trim())
     }
 
+    /** Sales for one event plus the voids/refunds that point at them. */
+    fun forEvent(eventId: String): Ledger {
+        val ids = sales.filter { it.eventId == eventId }.map { it.id }.toSet()
+        return Ledger(entries.filter {
+            when (it) {
+                is LedgerEntry.Sale -> it.id in ids
+                is LedgerEntry.Void -> it.saleId in ids
+                is LedgerEntry.Refund -> it.saleId in ids
+            }
+        })
+    }
+
+    /** Spreadsheet export, one row per entry. [names] maps ids (staff, packages) to readable names. */
+    fun toCsv(names: Map<String, String>, zone: java.time.ZoneId): String {
+        val time = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(zone)
+        fun money(c: Centavos?) = c?.let { "%d.%02d".format(it.value / 100, it.value % 100) } ?: ""
+        val rows = listOf(listOf("time", "type", "package", "amount", "path", "cash received", "change",
+            "reference", "staff", "cash held by", "reason", "entry id", "sale id")) +
+            entries.map { e ->
+                when (e) {
+                    is LedgerEntry.Sale -> listOf(time.format(e.at), "sale", names[e.packageId] ?: e.packageId, money(e.amount),
+                        e.path.name.lowercase(), money(e.tendered), money(e.change), e.qrReference ?: "",
+                        names[e.byStaffId] ?: e.byStaffId, e.receivedCashBy?.let { names[it] ?: it } ?: "", "", e.id, e.id)
+                    is LedgerEntry.Void -> listOf(time.format(e.at), "void", "", "", "", "", "", "",
+                        names[e.byStaffId] ?: e.byStaffId, "", e.reason, e.id, e.saleId)
+                    is LedgerEntry.Refund -> listOf(time.format(e.at), "refund", "", "-" + money(e.amount), "", "", "", "",
+                        names[e.byStaffId] ?: e.byStaffId, "", e.reason, e.id, e.saleId)
+                }
+            }
+        return rows.joinToString("\r\n", postfix = "\r\n") { r -> r.joinToString(",") { csvCell(it) } }
+    }
+
     fun summary(): LedgerSummary {
         val live = sales.filterNot { isVoided(it.id) }
         val refunds = entries.filterIsInstance<LedgerEntry.Refund>().fold(Centavos.ZERO) { s, r -> s + r.amount }
@@ -158,3 +190,9 @@ data class LedgerSummary(
     /** Should be matched against the wallet history by hand. */
     val missingReference: List<LedgerEntry.Sale>,
 )
+
+/** RFC 4180 quoting; a leading =+-@ is prefixed with ' so spreadsheets don't run it as a formula. */
+internal fun csvCell(v: String): String {
+    val safe = if (v.isNotEmpty() && v[0] in "=+-@" && v.toDoubleOrNull() == null) "'$v" else v
+    return if (safe.any { it in ",\"\r\n" }) "\"" + safe.replace("\"", "\"\"") + "\"" else safe
+}

@@ -36,6 +36,7 @@ interface CkDao {
     suspend fun unfinishedSessions(): List<SessionRow>
 
     @Upsert suspend fun savePrintJob(row: PrintJobRow)
+    @Query("SELECT * FROM print_jobs WHERE id = :id") suspend fun printJob(id: String): PrintJobRow?
     @Query("SELECT * FROM print_jobs WHERE sessionId = :sessionId ORDER BY createdAt") suspend fun printJobs(sessionId: String): List<PrintJobRow>
     @Query("SELECT * FROM print_jobs WHERE state IN ('QUEUED','SENDING','FAILED','UNKNOWN') ORDER BY createdAt")
     suspend fun openPrintJobs(): List<PrintJobRow>

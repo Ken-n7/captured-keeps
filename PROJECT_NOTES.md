@@ -273,6 +273,9 @@ Plan:
    Checked with screenshot tests on the laptop and on a real phone (Realme 3 Pro).
    - Paid sessions interrupted by a crash can be resumed by staff (PIN) without a new payment.
    - App is locked to landscape for now (tablet booth); revisit when the Tab A11 arrives.
+6. ✅ Owner/admin on the tablet: first-run owner setup, staff login (owner password / attendant PIN, shared lockout),
+   totals + cash held + CSV export, "Did it print?" checks, events (create/edit/packages/layouts/go live/pause/finish/archive),
+   staff + PINs, print tuning, screen pinning.
 5. Admin: event setup, attendant PIN, totals, CSV export.
 6. **When hardware arrives:** Bluetooth/USB printer output, real-camera tuning, pilot test.
 7. Cloud backup → admin web app → everything else.
