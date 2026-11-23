@@ -63,6 +63,9 @@ captured-keeps/
 ├── HISTORY.md            ← development timeline
 ├── DEVICE_TESTING.md     ← what needs a real phone/tablet/printer to verify
 ├── android/              ← tablet app (built now)
+│   ├── core/             ← business rules + print engine (pure Kotlin, laptop-tested)
+│   ├── data/             ← on-device database (Room + bundled SQLite, laptop-tested)
+│   └── app/              ← Android screens
 └── web/                  ← admin web app (later, after cloud backup exists)
 ```
 
@@ -262,12 +265,11 @@ Plan:
 
 ## 6. Build order
 
-1. Android project + brand design system (ivory/charcoal/taupe).
-2. Kiosk flow UI with stand-ins:
-   - **Camera:** emulator uses laptop webcam.
-   - **Virtual printer:** shows the exact 576px black-and-white image instead of printing.
-3. Thermal image processing (no printer needed — judge on screen).
-4. Local database + states/validation (§4).
+1. ✅ Android project + brand design system (ivory/charcoal/taupe).
+2. ✅ Thermal image processing (no printer needed — judge sample strips on screen).
+3. ✅ States/validation (§4) as business rules, then ✅ local database.
+4. Strip drawn on Android + **virtual printer** screen (shows the exact 576px black-and-white image instead of printing).
+   Kiosk flow UI — no emulator on this laptop (§5.2), so screens are checked with screenshot tests, camera on a spare phone/tablet.
 5. Admin: event setup, attendant PIN, totals, CSV export.
 6. **When hardware arrives:** Bluetooth/USB printer output, real-camera tuning, pilot test.
 7. Cloud backup → admin web app → everything else.

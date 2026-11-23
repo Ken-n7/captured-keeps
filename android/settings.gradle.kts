@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "CapturedKeeps"
-include(":app", ":core")
+include(":app", ":core", ":data")

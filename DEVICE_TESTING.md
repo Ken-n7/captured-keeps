@@ -21,7 +21,7 @@ Legend: ⏳ not built yet · 🔨 built, waiting for device · ✅ verified on d
 | A7 | Virtual printer screen shows the exact 576-dot image | ⏳ | |
 | A8 | Idle video loops; tap to start; missing/broken video → branded fallback screen | ⏳ | MP4 |
 | A9 | Inactivity timeout returns to idle | ⏳ | Default 60 s |
-| A10 | Records saved to on-device database survive app kill + phone restart | ⏳ | Step 3b |
+| A10 | Records saved to on-device database survive app kill + phone restart | 🔨 | Laptop-tested (file reopen); needs screens that save data to try on device |
 | A11 | Force-close mid-capture → session cancelled, paid customer can resume without paying again | ⏳ | Logic unit-tested; needs real kill/restart |
 | A12 | Force-close mid-print → attendant asked "Did it print?", no auto-reprint | ⏳ | Logic unit-tested |
 | A13 | Low storage warning (< 2 GB) and session block (< 500 MB) | ⏳ | Fill storage with a dummy file |

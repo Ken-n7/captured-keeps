@@ -62,3 +62,14 @@
 - Tests: 26 passing (16 new domain tests).
 - Next (3b): save these records on the device (Room database).
 - Created `DEVICE_TESTING.md`: checklist of everything that needs a real phone, the Tab A11, the printer, or a pilot event to verify.
+
+## 2026-11-23 — On-device database (build order step 3b)
+
+- Committed step 3a as `a2ed855` (no AI attribution).
+- New `android/data` module: Room 2.8.3 + bundled SQLite (same SQLite on laptop and tablet), plain JVM so it's tested on the laptop.
+  - Tables: staff, events, packages, sessions (with package snapshot), print_jobs, ledger (sales/voids/refunds), audit.
+  - Database-level guards: ledger and audit are append-only (UPDATE/DELETE blocked by triggers); a unique index stops one payment unlocking two active sessions even if app code had a bug.
+  - `Store`: the app's single read/write entry point — audited event edits in one transaction, ledger append/load, session start re-checks the payment inside a transaction, print jobs, restart recovery.
+  - Schema exported to `android/data/schemas/` (needed to write migrations later without losing data).
+- Tests: 32 passing (6 new database tests: round-trips, audit, append-only, one-payment-one-session, restart recovery, survives close/reopen). Debug APK still builds.
+- Not yet: sync columns (added with a migration when cloud sync is built), custom strip layouts saved in the database (presets live in code for now), PIN storage (with the login screens).
