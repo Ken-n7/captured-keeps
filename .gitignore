@@ -1,0 +1,25 @@
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.kotlin/
+captures/
+
+# Private sample photos (people's faces) — never commit
+samples/photos/*
+!samples/photos/.gitkeep
+
+# Word lock files
+~$*.docx
+
+# Editors / OS / logs
+.vscode/
+.DS_Store
+*.log
+
+# Signing keys and secrets — never commit
+*.jks
+*.keystore
+.env
