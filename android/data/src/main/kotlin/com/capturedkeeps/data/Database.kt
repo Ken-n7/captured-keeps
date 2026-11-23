@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 interface CkDao {
     @Upsert suspend fun saveStaff(row: StaffRow)
     @Query("SELECT * FROM staff ORDER BY name") suspend fun staff(): List<StaffRow>
+    @Query("SELECT * FROM staff WHERE id = :id") suspend fun staffRow(id: String): StaffRow?
 
     @Upsert suspend fun saveEventRow(row: EventRow)
     @Query("DELETE FROM packages WHERE eventId = :eventId") suspend fun deletePackages(eventId: String)

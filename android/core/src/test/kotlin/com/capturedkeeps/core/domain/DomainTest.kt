@@ -202,4 +202,16 @@ class DomainTest {
         assertFalse(SyncState.ERROR.canDeleteLocally)
         assertNull(Ledger().sale(paid, "basic", PaymentPath.CUSTOMER_QR, ana, now).receivedCashBy)
     }
+
+    // ── PIN ────────────────────────────────────────────────
+    @Test fun `pins are hashed, salted and checked`() {
+        val h = Pin.hash("1234")
+        assertFalse("1234" in h)
+        assertTrue(Pin.matches("1234", h))
+        assertFalse(Pin.matches("1235", h))
+        assertTrue(h != Pin.hash("1234")) // salted
+        assertFalse(Pin.matches("1234", "garbage"))
+        broken { Pin.hash("12") }
+        broken { Pin.hash("12ab") }
+    }
 }

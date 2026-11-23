@@ -5,6 +5,14 @@ import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import com.capturedkeeps.app.print.AndroidStrip
 import com.capturedkeeps.app.print.toBitmap
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.asImageBitmap
+import com.capturedkeeps.app.ui.*
+import com.capturedkeeps.core.domain.*
 import com.capturedkeeps.app.ui.CapturedKeepsTheme
 import com.capturedkeeps.app.ui.VirtualPrinterScreen
 import com.capturedkeeps.core.print.PAPER_80MM_DOTS
@@ -30,6 +38,30 @@ class ScreenshotTest {
 
     private fun screen(layout: StripLayout) =
         paparazzi.snapshot { CapturedKeepsTheme { VirtualPrinterScreen(initialLayout = layout) } }
+
+    private val event = Event(name = "Maria & Jose's Wedding", type = EventType.PAID, status = EventStatus.LIVE,
+        packages = listOf(SessionPackage(name = "Classic", price = Centavos.pesos(150)),
+            SessionPackage(name = "Duo", price = Centavos.pesos(250), copies = 2)),
+        layoutIds = listOf(StripLayout.CLASSIC_3.id))
+    private val strip by lazy {
+        AndroidStrip.render(StripLayout.CLASSIC_3, StripInfo(event.name, LocalDateTime.of(2026, 11, 23, 18, 42), 42), SamplePhotos.DEFAULT)
+            .toBitmap().asImageBitmap()
+    }
+
+    private fun kiosk(content: @Composable () -> Unit) = paparazzi.snapshot {
+        CapturedKeepsTheme { Surface(color = MaterialTheme.colorScheme.background) { content() } }
+    }
+
+    @Test fun kioskIdle() = kiosk { IdleScreen({}, {}) }
+    @Test fun kioskChoosePackage() = kiosk { ChoosePackageScreen(event, {}, {}) }
+    @Test fun kioskPaymentCash() = kiosk {
+        PaymentScreen(event.packages[0], "Wrong PIN", emptyList(), { _, _, _, _ -> }, { _, _ -> }, {}, PaymentPath.CASH_VIA_STAFF)
+    }
+    @Test fun kioskReview() = kiosk { ReviewScreen(strip, 2, false, {}, {}, null) }
+    @Test fun kioskPrintFailed() = kiosk { PrintingScreen(strip, "Printer is out of paper", {}) }
+    @Test fun kioskDone() = kiosk { DoneScreen(strip, 2, {}) }
+    @Test fun kioskBlocked() = kiosk { Message("Please call staff", "No event is live. Please call staff.") { Button({}) { Text("Try again") } } }
+    @Test fun kioskCameraPermission() = kiosk { CameraPermissionNeeded(asked = true, {}, {}, {}) }
 
     /** Full-size strips drawn with Android Canvas → app/build/samples, to compare with core/build/samples. */
     @Test fun androidStrips() {

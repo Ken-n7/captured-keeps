@@ -11,7 +11,7 @@ import java.time.LocalDate
 // ponytail: no sync columns yet — add (with a migration) when cloud sync is built.
 
 @Entity(tableName = "staff")
-data class StaffRow(@PrimaryKey val id: String, val name: String, val role: String)
+data class StaffRow(@PrimaryKey val id: String, val name: String, val role: String, val pinHash: String? = null)
 
 @Entity(tableName = "events")
 data class EventRow(
@@ -113,7 +113,7 @@ data class AuditRow(
 private fun Instant.ms() = toEpochMilli()
 private fun Long.instant() = Instant.ofEpochMilli(this)
 
-fun Staff.row() = StaffRow(id, name, role.name)
+fun Staff.row(pinHash: String?) = StaffRow(id, name, role.name, pinHash)
 fun StaffRow.domain() = Staff(id, name, Role.valueOf(role))
 
 fun Event.row() = EventRow(id, name, type.name, status.name, venue, startDate?.toString(), endDate?.toString(),

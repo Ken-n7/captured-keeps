@@ -12,21 +12,21 @@ Legend: ⏳ not built yet · 🔨 built, waiting for device · ✅ verified on d
 
 | # | Test | Status | Notes |
 |---|---|---|---|
-| A1 | App installs and opens (debug APK) | 🔨 | `android/app/build/outputs/apk/debug/app-debug.apk` |
-| A2 | Brand theme looks right: colors, fonts, text sizes readable | 🔨 | Virtual printer screen (app opens on it for now) |
-| A3 | Camera permission prompt + explanation; denied → clear recovery screen | ⏳ | |
-| A4 | Live camera preview, countdown, capture N shots | ⏳ | Front camera |
-| A5 | Review / retake within package limit | ⏳ | |
-| A6 | Strip drawn on device (Android Canvas) matches laptop sample | 🔨 | Matches on the laptop's Android renderer (`app/build/samples` vs `core/build/samples`); device fonts may differ slightly |
+| A1 | App installs and opens (debug APK) | ✅ | Realme 3 Pro, Android 11, 2026-11-23 |
+| A2 | Brand theme looks right: colors, fonts, text sizes readable | ✅ | Realme 3 Pro, Android 11, 2026-11-23. Screens designed for the tablet; on the phone, landscape is tight but usable |
+| A3 | Camera permission prompt + explanation; denied → clear recovery screen | 🔨 | Prompt shown and "allow" works (Realme 3 Pro, Android 11, 2026-11-23). Denied → recovery screen not tried yet |
+| A4 | Live camera preview, countdown, capture N shots | ✅ | Realme 3 Pro, Android 11, 2026-11-23. Preview, 3-2-1, flash, 3 shots saved |
+| A5 | Review / retake within package limit | 🔨 | Review screen ✅; retake not tried on device yet |
+| A6 | Strip drawn on device (Android Canvas) matches laptop sample | ✅ | Strip built from real camera photos on Realme 3 Pro, Android 11, 2026-11-23 |
 | A7 | Virtual printer screen shows the exact 576-dot image | 🔨 | 1 dot = 1 screen pixel; check sliders feel responsive (renders on main thread) |
 | A8 | Idle video loops; tap to start; missing/broken video → branded fallback screen | ⏳ | MP4 |
-| A9 | Inactivity timeout returns to idle | ⏳ | Default 60 s |
-| A10 | Records saved to on-device database survive app kill + phone restart | 🔨 | Laptop-tested (file reopen); needs screens that save data to try on device |
-| A11 | Force-close mid-capture → session cancelled, paid customer can resume without paying again | ⏳ | Logic unit-tested; needs real kill/restart |
+| A9 | Inactivity timeout returns to idle | 🔨 | 60 s on package/review screens, 120 s payment, 20 s done; paid sessions never time out |
+| A10 | Records saved to on-device database survive app kill + phone restart | ✅ | Survived force-stop (Realme 3 Pro, Android 11, 2026-11-23); phone reboot not tried yet |
+| A11 | Force-close mid-capture → session cancelled, paid customer can resume without paying again | ✅ | Force-stop mid-capture → session cancelled (APP_RESTART); staff resumed the payment with PIN, no second sale (Realme 3 Pro, Android 11, 2026-11-23) |
 | A12 | Force-close mid-print → attendant asked "Did it print?", no auto-reprint | ⏳ | Logic unit-tested |
 | A13 | Low storage warning (< 2 GB) and session block (< 500 MB) | ⏳ | Fill storage with a dummy file |
 | A14 | Screen pinning keeps customers inside the app; admin exit works | ⏳ | |
-| A15 | Attendant PIN unlock / owner login | ⏳ | |
+| A15 | Attendant PIN unlock / owner login | 🔨 | Attendant PIN for payment ✅ (Realme 3 Pro, Android 11, 2026-11-23). Owner login comes with admin screens |
 | A16 | Airplane mode: full free-event flow still works | ⏳ | |
 | A17 | CSV export opens in a spreadsheet app | ⏳ | |
 

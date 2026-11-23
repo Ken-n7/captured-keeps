@@ -3,6 +3,7 @@ package com.capturedkeeps.data
 import androidx.room.immediateTransaction
 import androidx.room.useWriterConnection
 import com.capturedkeeps.core.domain.*
+import com.capturedkeeps.core.print.StripLayout
 import java.time.Instant
 
 /** The app's only way to read/write records. Domain rules run first, then rows are saved. */
@@ -12,8 +13,16 @@ class Store(private val db: CkDatabase) {
     private suspend fun <T> tx(block: suspend () -> T): T =
         db.useWriterConnection { it.immediateTransaction { block() } }
 
-    suspend fun saveStaff(staff: Staff) = dao.saveStaff(staff.row())
+    /** [pin] null keeps the current PIN. */
+    suspend fun saveStaff(staff: Staff, pin: String? = null) =
+        dao.saveStaff(staff.row(pin?.let(Pin::hash) ?: dao.staffRow(staff.id)?.pinHash))
     suspend fun staff() = dao.staff().map { it.domain() }
+
+    // ponytail: checks every staff hash (~20 ms each); fine for a handful of staff.
+    suspend fun staffByPin(pin: String): Staff? =
+        dao.staff().firstOrNull { it.pinHash != null && Pin.matches(pin, it.pinHash) }?.domain()
+
+    suspend fun liveEvent() = events().firstOrNull { it.status == EventStatus.LIVE }
 
     suspend fun event(id: String) = dao.eventRow(id)?.domain(dao.packages(id))
     suspend fun events() = dao.eventRows().map { it.domain(dao.packages(it.id)) }
@@ -29,6 +38,18 @@ class Store(private val db: CkDatabase) {
         saved
     }
 
+    /** ponytail: demo data (owner PIN 1234 + a live paid event) until the admin screens exist — delete then. */
+    suspend fun seedDemoIfEmpty() {
+        if (dao.eventRows().isNotEmpty()) return
+        saveStaff(Staff(name = "Owner", role = Role.OWNER), pin = "1234")
+        saveEvent(Event(name = "Demo Event", type = EventType.PAID, status = EventStatus.LIVE,
+            packages = listOf(
+                SessionPackage(name = "Classic", price = Centavos.pesos(150), copies = 1, retakes = 2),
+                SessionPackage(name = "Duo", price = Centavos.pesos(250), copies = 2, retakes = 2),
+            ),
+            layoutIds = StripLayout.PRESETS.map { it.id }))
+    }
+
     suspend fun audit(entityId: String) = dao.audit(entityId).map { it.domain() }
 
     // ponytail: loads the whole ledger each time; fine for thousands of sales, query per event if it grows.
@@ -37,8 +58,12 @@ class Store(private val db: CkDatabase) {
     /** Sale, void or refund — created by [Ledger.sale]/[Ledger.void]/[Ledger.refund]. Never edited afterwards. */
     suspend fun append(entry: LedgerEntry) = dao.appendLedger(entry.row())
 
-    /** Paid sessions re-check the sale inside the same transaction; the DB index backs it up. */
-    suspend fun startSession(session: Session) = tx {
+    /**
+     * Paid sessions re-check the sale inside the same transaction; the DB index backs it up.
+     * Pass [newSale] to record a just-confirmed payment together with its session (both or neither).
+     */
+    suspend fun startSession(session: Session, newSale: LedgerEntry.Sale? = null) = tx {
+        newSale?.let { dao.appendLedger(it.row()) }
         session.saleId?.let { ledger().authorize(it, dao.sessionsForSale(it).map { r -> r.domain() }) }
         dao.insertSession(session.row())
     }

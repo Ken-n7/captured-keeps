@@ -83,3 +83,22 @@
 - Screenshot tests with Paparazzi (real Android rendering on the laptop, no emulator): 3 screen snapshots committed in `app/src/test/snapshots/`, plus full-size Android strips written to `app/build/samples/`.
   - Used Paparazzi 2.0.0-alpha02: newer alphas need Java 21 and pull in Android build tools 9 (clashes with our 8.13).
 - Tests: 36 passing (core 26, data 6, app 4). Debug APK builds.
+
+## 2026-11-23 — Kiosk flow + first run on a real phone (build order step 5)
+
+- Committed step 4 as `10962ac`.
+- `core`: staff PINs stored only as salted PBKDF2 hashes (`Pin`).
+- `data`:
+  - `KioskFlow`: the customer journey as one tested state machine — idle → package → payment (staff PIN; customer QR or cash via staff, change, reference no.) → capture → review/retake → print → done.
+    - Every step saved before the screen moves on; actions serialized so double taps can't run twice.
+    - 5 wrong PINs → 60 s lockout. Paid sessions never time out and customers can't cancel them.
+    - Blocks new customers when no event is live or storage is under 500 MB.
+  - Payment + session saved in one transaction (both or neither).
+  - Staff table gained a PIN hash column (schema v1 regenerated — nothing installed anywhere yet, so no migration needed).
+  - Demo data seeded on first launch (owner PIN 1234, "Demo Event" with Classic ₱150 / Duo ₱250) until admin screens exist.
+- `app`: kiosk screens (Compose), CameraX front camera with countdown + flash, camera-permission screen, inactivity timeouts, screen kept on, landscape lock, virtual printer prints after 2 s; long-press idle screen → virtual printer/tuning.
+- Phone connected (Realme 3 Pro, Android 11): installed and ran the full paid flow end to end; pulled the database to the laptop to confirm records.
+  - Force-stopped mid-capture → restart recovery cancelled the session correctly, but the customer's payment had no way to be used → **added "Resume unused payment"** (staff PIN, no new sale). Verified on the phone: still 2 sales, resumed session printed as No. 0002.
+  - Fixed: staff column didn't scroll on a short screen (confirm button hidden).
+- Tests: 52 passing (core 27, data 13, app 12 incl. 11 screenshots). `DEVICE_TESTING.md` updated with phone results.
+- Not yet: idle video, event welcome text on idle, QR image on payment screen, PIN-gated staff menu, "Did it print?" prompt after a crash, real printer.

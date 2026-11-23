@@ -269,7 +269,10 @@ Plan:
 2. ✅ Thermal image processing (no printer needed — judge sample strips on screen).
 3. ✅ States/validation (§4) as business rules, then ✅ local database.
 4. ✅ Strip drawn on Android + **virtual printer** screen (shows the exact 576px black-and-white image instead of printing).
-   Kiosk flow UI — no emulator on this laptop (§5.2), so screens are checked with screenshot tests, camera on a spare phone/tablet.
+5. ✅ Kiosk flow UI: idle → package → staff payment confirm (PIN) → camera → review/retake → print (virtual) → done.
+   Checked with screenshot tests on the laptop and on a real phone (Realme 3 Pro).
+   - Paid sessions interrupted by a crash can be resumed by staff (PIN) without a new payment.
+   - App is locked to landscape for now (tablet booth); revisit when the Tab A11 arrives.
 5. Admin: event setup, attendant PIN, totals, CSV export.
 6. **When hardware arrives:** Bluetooth/USB printer output, real-camera tuning, pilot test.
 7. Cloud backup → admin web app → everything else.
