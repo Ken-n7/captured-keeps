@@ -47,3 +47,18 @@
 - Sample strips: `./gradlew :core:test` writes `android/core/build/samples/*.png` using photos from `samples/photos/` (synthetic images if empty).
 - Debug APK builds (`./gradlew :app:assembleDebug`).
 - Not yet: logo image + PNG overlay on strips (waiting for real files), Android Canvas strip renderer, virtual printer screen.
+
+## 2026-11-23 — First commit + business rules (build order step 3a)
+
+- Extended `.gitignore` (editors, logs, signing keys, `.env`). Ran tests + build, then made the first commit `8258a92` on `main` (no AI attribution).
+- Business rules from PROJECT_NOTES §4 as pure Kotlin in `core/domain` (tested on the laptop, no device):
+  - `Centavos`: integer money, parses staff input ("150.50", "₱1,500"), rejects negatives, >2 decimals, typo-sized amounts.
+  - `Event`: validation, Draft → Live ⇄ Paused → Completed / Draft → Cancelled, go-live check (blockers vs warnings), one live event per booth, "Scheduled" label, hide (archive), read-only when finished, edits produce audit entries (field, old → new).
+  - `Session`: start rules (live event, offered package, enabled layout, paid needs confirmed payment), package/layout snapshot, capture → review → retake (limited) → print → complete, fail/cancel with reason.
+  - `PrintJob`: queued → sending → done / failed → retry; unknown after crash resolved by attendant; reprint = new job with reason + operator, never charges.
+  - `recoverAfterRestart`: cancels interrupted sessions (payment becomes reusable), marks mid-send prints "unknown", never auto-resends.
+  - `Ledger` (append-only): sale (customer QR / cash via staff, tendered + change, QR reference format), authorize (one payment → one session), void (before capture only), refund (owner only, capped, partial allowed), summary (gross, refunds, net, per path, cash held per staff, sales missing a reference).
+  - `storageStatus` (warn < 2 GB, block < 500 MB), `SyncState.canDeleteLocally`.
+- Tests: 26 passing (16 new domain tests).
+- Next (3b): save these records on the device (Room database).
+- Created `DEVICE_TESTING.md`: checklist of everything that needs a real phone, the Tab A11, the printer, or a pilot event to verify.

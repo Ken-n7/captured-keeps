@@ -4,7 +4,7 @@
 > `Captured_Keeps_Complete_App_Specification.docx` wherever they differ.
 > **Nothing here is final** — decisions can change during discussion *and* during development.
 > Update this file whenever a decision changes. Building starts only when the owner says so.
-> Work done over time is logged in `HISTORY.md`.
+> Work done over time is logged in `HISTORY.md`. Hardware-only tests are tracked in `DEVICE_TESTING.md`.
 >
 > **Project rule:** no AI/Claude attribution anywhere — no `Co-Authored-By` trailers in commits, no "Generated with Claude" lines in PRs, docs, or code.
 
@@ -61,6 +61,7 @@ Known constraint: Bluetooth image printing is slow (~5–10 s per strip). Show p
 captured-keeps/
 ├── PROJECT_NOTES.md      ← this file (decisions)
 ├── HISTORY.md            ← development timeline
+├── DEVICE_TESTING.md     ← what needs a real phone/tablet/printer to verify
 ├── android/              ← tablet app (built now)
 └── web/                  ← admin web app (later, after cloud backup exists)
 ```
