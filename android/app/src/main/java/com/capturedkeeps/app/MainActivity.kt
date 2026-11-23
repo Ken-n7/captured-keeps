@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
                                 nav = Nav.Kiosk
                             }
                         }
-                        Nav.Kiosk -> KioskScreen(app.kiosk, app.scope, filesDir, onStaff = { nav = Nav.Login })
+                        Nav.Kiosk -> KioskScreen(app.kiosk, app.store, app.scope, filesDir, onStaff = { nav = Nav.Login })
                         Nav.Login -> {
                             BackHandler { nav = Nav.Kiosk }
                             LoginScreen(actions.error, onBack = { nav = Nav.Kiosk },

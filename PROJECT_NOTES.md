@@ -280,6 +280,8 @@ Plan:
      (owner password login only, partial allowed, reason required). Both are new ledger entries — nothing is edited.
    - Staff who leave are disabled, not deleted. The last owner can't be disabled.
    - **Database migrations are now in place (v2).** Every schema change from here on must add a migration and a migration test.
+7. ✅ Idle video (silent loop, Android's built-in player, branded fallback), event welcome text on idle, event dates
+   (+ "Scheduled" label), payment QR image (one per business) on the payment screen. Picked files are copied into app storage.
 5. Admin: event setup, attendant PIN, totals, CSV export.
 6. **When hardware arrives:** Bluetooth/USB printer output, real-camera tuning, pilot test.
 7. Cloud backup → admin web app → everything else.

@@ -14,7 +14,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.asImageBitmap
+import com.capturedkeeps.app.media.Media
+import java.time.LocalDate
+import java.time.ZoneOffset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -54,6 +60,7 @@ private sealed interface StaffPage {
     data object StaffList : StaffPage
     data class EditStaff(val staff: Staff?) : StaffPage
     data object Tuning : StaffPage
+    data object PaymentQr : StaffPage
 }
 
 private val CLOCK = DateTimeFormatter.ofPattern("MMM d, HH:mm").withZone(ZoneId.systemDefault())
@@ -67,6 +74,27 @@ fun StaffArea(store: Store, login: Login, scope: CoroutineScope, onExit: () -> U
     val back = { actions.error = null; if (page == StaffPage.Menu) onExit() else page = StaffPage.Menu }
     BackHandler(onBack = back)
     val activity = LocalContext.current as? Activity
+    val context = LocalContext.current
+
+    // Android's file browser, not the photo picker: on older Android the photo picker can miss files added minutes ago.
+    // Video picker result is handed to whichever editor asked for it.
+    var onVideo by remember { mutableStateOf<((String) -> Unit)?>(null) }
+    val videoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val done = onVideo
+        if (uri != null && done != null) actions.run {
+            val f = Media.copyIn(context, uri)
+            if (!Media.isPlayableVideo(f.path)) { f.delete(); throw IllegalStateException("That video can't be played on this device. Try an MP4.") }
+            done(f.path)
+        }
+    }
+    var qrVersion by remember { mutableIntStateOf(0) }
+    val qrPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) actions.run {
+            val f = Media.copyIn(context, uri, Media.paymentQr(context))
+            if (Media.image(f) == null) { f.delete(); throw IllegalStateException("That image can't be opened. Try a PNG or JPG screenshot of your QR.") }
+            qrVersion++
+        }
+    }
 
     when (val p = page) {
         StaffPage.Menu -> {
@@ -113,6 +141,10 @@ fun StaffArea(store: Store, login: Login, scope: CoroutineScope, onExit: () -> U
                 onMove = { e, to -> actions.run { store.moveEvent(e.id, to, login.staff, Instant.now()); refresh++ } })
         }
         is StaffPage.EditEvent -> EventEditor(p.event, actions.error, onBack = { actions.error = null; page = StaffPage.Events },
+            pickVideo = { done ->
+                onVideo = done
+                videoPicker.launch(arrayOf("video/*"))
+            },
             onSave = { e ->
                 actions.run {
                     if (p.event == null) store.saveEvent(e) else store.editEvent(e, login.staff, Instant.now())
@@ -130,6 +162,9 @@ fun StaffArea(store: Store, login: Login, scope: CoroutineScope, onExit: () -> U
                     store.saveStaff(s, pin, password); refresh++; page = StaffPage.StaffList
                 }
             })
+        StaffPage.PaymentQr -> PaymentQrPage(remember(qrVersion) { Media.image(Media.paymentQr(context)) }, actions.error, onBack = back,
+            onChoose = { qrPicker.launch(arrayOf("image/*")) },
+            onRemove = { Media.paymentQr(context).delete(); qrVersion++ })
         StaffPage.Tuning -> Column {
             TextButton(back, Modifier.padding(start = 16.dp, top = 8.dp)) { Text("‹ Back") }
             VirtualPrinterScreen()
@@ -224,6 +259,7 @@ private fun StaffMenu(login: Login, printsToCheck: Int, onOpen: (StaffPage) -> U
             if (login.ownerTools) {
                 Tile("Events", "Set up, go live, finish") { onOpen(StaffPage.Events) }
                 Tile("Staff", "Names, PINs, password") { onOpen(StaffPage.StaffList) }
+                Tile("Payment QR", "Your wallet QR shown to customers") { onOpen(StaffPage.PaymentQr) }
                 Tile("Print tuning", "Preview strips and darkness") { onOpen(StaffPage.Tuning) }
                 Tile("Lock booth", "Pin the app so customers can't leave it") { onPin(true) }
                 Tile("Unlock booth", "Unpin the app") { onPin(false) }
@@ -323,14 +359,19 @@ fun EventsPage(events: List<Event>, error: String?, onBack: () -> Unit, onNew: (
             Column(Modifier.padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(e.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    Text(e.status.label.uppercase(), style = MaterialTheme.typography.labelMedium, color = when (e.status) {
+                    val label = if (e.isScheduled(LocalDate.now())) "scheduled" else e.status.label
+                    Text(label.uppercase(), style = MaterialTheme.typography.labelMedium, color = when (e.status) {
                         EventStatus.LIVE -> Brand.Ok; EventStatus.PAUSED -> Brand.Warn; else -> MaterialTheme.colorScheme.onSurfaceVariant
                     })
                 }
+                e.dates()?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                 Text("${if (e.type == EventType.PAID) "Paid" else "Free"} · ${e.packages.joinToString { "${it.name} ${it.price}" }.ifEmpty { "no packages" }}",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (e.status == EventStatus.DRAFT) for (b in e.goLiveCheck(mediaPlayable = false).blockers)
-                    Text("• $b", style = MaterialTheme.typography.bodyMedium, color = Brand.Warn)
+                if (!e.status.isFinished) {
+                    val check = e.goLiveCheck(Media.isPlayableVideo(e.idleMedia))
+                    for (b in check.blockers.takeIf { e.status == EventStatus.DRAFT }.orEmpty() + check.warnings)
+                        Text("• $b", style = MaterialTheme.typography.bodyMedium, color = Brand.Warn)
+                }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (!e.status.isFinished) OutlinedButton({ onEdit(e) }) { Text("Edit") }
                     for ((to, label) in MOVES) if (to in e.nextMoves()) OutlinedButton({ onMove(e, to) }) { Text(if (to == EventStatus.LIVE && e.status == EventStatus.PAUSED) "Resume" else label) }
@@ -339,6 +380,14 @@ fun EventsPage(events: List<Event>, error: String?, onBack: () -> Unit, onNew: (
             }
         }
     }
+
+private val DAY = DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")
+
+private fun Event.dates(): String? = when {
+    startDate == null -> null
+    endDate == null || endDate == startDate -> DAY.format(startDate)
+    else -> "${DAY.format(startDate)} – ${DAY.format(endDate)}"
+}
 
 private fun Event.nextMoves() = when (status) {
     EventStatus.DRAFT -> setOf(EventStatus.LIVE, EventStatus.CANCELLED)
@@ -359,7 +408,7 @@ private class PackageDraft(val id: String, name: String, price: String, copies: 
 /** New event ([event] null) or edit. Edits only reach new sessions; running ones keep their snapshot. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun EventEditor(event: Event?, error: String?, onBack: () -> Unit, onSave: (Event) -> Unit) {
+fun EventEditor(event: Event?, error: String?, onBack: () -> Unit, onSave: (Event) -> Unit, pickVideo: ((String) -> Unit) -> Unit = {}) {
     val e = event ?: Event(name = "New event", type = EventType.PAID, layoutIds = listOf(StripLayout.CLASSIC_3.id))
     var name by remember { mutableStateOf(if (event == null) "" else e.name) }
     var type by remember { mutableStateOf(e.type) }
@@ -367,6 +416,9 @@ fun EventEditor(event: Event?, error: String?, onBack: () -> Unit, onSave: (Even
     var welcome by remember { mutableStateOf(e.welcomeText) }
     var footer by remember { mutableStateOf(e.receiptFooter) }
     var layouts by remember { mutableStateOf(e.layoutIds.toSet()) }
+    var start by remember { mutableStateOf(e.startDate) }
+    var end by remember { mutableStateOf(e.endDate) }
+    var video by remember { mutableStateOf(e.idleMedia) }
     val packages = remember {
         mutableStateListOf<PackageDraft>().apply {
             addAll(e.packages.map { PackageDraft(it.id, it.name, if (it.price == Centavos.ZERO) "" else "%d.%02d".format(it.price.value / 100, it.price.value % 100), "${it.copies}", "${it.retakes}") })
@@ -378,7 +430,7 @@ fun EventEditor(event: Event?, error: String?, onBack: () -> Unit, onSave: (Even
         Button({
             localError = try {
                 onSave(e.copy(name = name.trim(), type = type, venue = venue.trim(), welcomeText = welcome.trim(),
-                    receiptFooter = footer.trim(), layoutIds = StripLayout.PRESETS.map { it.id }.filter { it in layouts },
+                    receiptFooter = footer.trim(), startDate = start, endDate = end, idleMedia = video, layoutIds = StripLayout.PRESETS.map { it.id }.filter { it in layouts },
                     packages = packages.map { it.build() }))
                 null
             } catch (x: IllegalStateException) { x.message } catch (x: IllegalArgumentException) { x.message }
@@ -390,8 +442,20 @@ fun EventEditor(event: Event?, error: String?, onBack: () -> Unit, onSave: (Even
             FilterChip(type == EventType.FREE, { type = EventType.FREE }, { Text("Free (sponsored)") })
         }
         Field("Venue", venue) { venue = it }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            DateField("Starts", start) { start = it }
+            DateField("Ends", end) { end = it }
+        }
         Field("Welcome text", welcome) { welcome = it }
         Field("Receipt footer", footer) { footer = it }
+
+        Text("IDLE SCREEN VIDEO", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (video == null) "None — the branded TAP TO START screen shows" else "Video set (plays silently on a loop)",
+                style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            OutlinedButton({ pickVideo { video = it } }) { Text(if (video == null) "Choose video" else "Change") }
+            if (video != null) TextButton({ video = null }) { Text("Remove") }
+        }
 
         Text("STRIP LAYOUTS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -528,3 +592,36 @@ private fun ReasonDialog(title: String, body: String, amount: String?, onDismiss
         confirmButton = { Button({ onConfirm(amount?.let { value }, reason) }, enabled = reason.isNotBlank()) { Text("Confirm") } },
         dismissButton = { TextButton(onDismiss) { Text("Keep it") } })
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateField(label: String, date: LocalDate?, onChange: (LocalDate?) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    OutlinedButton({ open = true }) { Text("$label: ${date?.let(DAY::format) ?: "not set"}") }
+    if (date != null) TextButton({ onChange(null) }) { Text("Clear") }
+    if (open) {
+        // The picker works in UTC midnight millis.
+        val state = rememberDatePickerState(initialSelectedDateMillis = date?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli())
+        DatePickerDialog(onDismissRequest = { open = false },
+            confirmButton = {
+                TextButton({
+                    onChange(state.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() })
+                    open = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton({ open = false }) { Text("Cancel") } }) { DatePicker(state) }
+    }
+}
+
+/** The business wallet QR customers scan on the payment screen. */
+@Composable
+fun PaymentQrPage(qr: ImageBitmap?, error: String?, onBack: () -> Unit, onChoose: () -> Unit, onRemove: () -> Unit) =
+    Page("Payment QR", onBack, error, actions = {
+        Button(onChoose) { Text(if (qr == null) "Choose image" else "Change") }
+        if (qr != null) TextButton(onRemove) { Text("Remove") }
+    }) {
+        Text("Use a screenshot of your e-wallet's \"Receive money\" QR. It shows on the payment screen so customers can scan it.",
+            style = MaterialTheme.typography.bodyLarge)
+        if (qr == null) Text("No QR set — the payment screen shows instructions only.", color = Brand.Warn, style = MaterialTheme.typography.bodyLarge)
+        else Image(qr, "Payment QR", Modifier.height(360.dp).background(Color.White).padding(8.dp))
+    }

@@ -1,6 +1,13 @@
 package com.capturedkeeps.app.ui
 
 import android.graphics.BitmapFactory
+import android.widget.VideoView
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import com.capturedkeeps.app.media.Media
+import com.capturedkeeps.data.Store
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -53,23 +60,29 @@ private fun timeoutFor(s: KioskState): Long? = when (s) {
 
 /** Connects the screens to [KioskFlow]. [scope] outlives the screen so saves always finish. */
 @Composable
-fun KioskScreen(flow: KioskFlow, scope: CoroutineScope, filesDir: File, onStaff: () -> Unit) {
+fun KioskScreen(flow: KioskFlow, store: Store, scope: CoroutineScope, filesDir: File, onStaff: () -> Unit) {
     val state by flow.state.collectAsState()
+    val context = LocalContext.current
+    // Re-read when back at idle, so event edits (welcome text, video) show up without a restart.
+    val live by produceState<Event?>(null, state is KioskState.Idle) { if (state is KioskState.Idle) value = store.liveEvent() }
+    val qr = remember(state is KioskState.Payment) { Media.image(Media.paymentQr(context)) }
     fun go(action: suspend KioskFlow.() -> Unit) { scope.launch { flow.action() } }
 
     var touched by remember { mutableLongStateOf(0L) }
     LaunchedEffect(state, touched) { timeoutFor(state)?.let { delay(it); flow.timeout() } }
+    // Android Back never leaves the booth: it backs out of package/payment (and free sessions); otherwise it does nothing.
+    BackHandler { go { cancel() } }
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).pointerInput(Unit) {
         awaitPointerEventScope { while (true) { awaitPointerEvent(PointerEventPass.Initial); touched = System.nanoTime() } }
     }) {
         when (val s = state) {
-            KioskState.Idle -> IdleScreen(onTap = { go { start() } }, onStaff = onStaff)
+            KioskState.Idle -> IdleScreen(live?.welcomeText, live?.idleMedia, onTap = { go { start() } }, onStaff = onStaff)
             is KioskState.Blocked -> Message("Please call staff", s.message) {
                 Button({ go { start() } }) { Text("Try again") }
             }
             is KioskState.ChoosePackage -> ChoosePackageScreen(s.event, onPick = { id -> go { choose(id) } }, onBack = { go { cancel() } })
-            is KioskState.Payment -> PaymentScreen(s.pkg, s.error, s.unused,
+            is KioskState.Payment -> PaymentScreen(s.pkg, s.error, s.unused, qr,
                 onConfirm = { path, pin, tendered, ref -> go { confirmPayment(path, pin, tendered, ref) } },
                 onResume = { saleId, pin -> go { resumePayment(saleId, pin) } },
                 onBack = { go { cancel() } })
@@ -121,19 +134,35 @@ private fun rememberStrip(path: String) = remember(path) { BitmapFactory.decodeF
 
 // ───────────── Screens (stateless, screenshot-tested) ─────────────
 
+/** Event video on a silent loop with the welcome text; the branded screen if there's no video or it won't play. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun IdleScreen(onTap: () -> Unit, onStaff: () -> Unit) =
-    // ponytail: idle video (Media3) + event welcome text come later; long-press opens staff tools until PIN-gated admin exists.
-    Column(Modifier.fillMaxSize().combinedClickable(onClick = onTap, onLongClick = onStaff),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text("CAPTURED KEEPS", style = MaterialTheme.typography.displayLarge, textAlign = TextAlign.Center)
-        Text("RECEIPT PHOTO STUDIO", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(48.dp))
-        Text("Tap anywhere to start", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(12.dp))
-        Text("Little moments. Lifelong keeps.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun IdleScreen(welcome: String?, video: String?, onTap: () -> Unit, onStaff: () -> Unit) {
+    // ponytail: long-press opens staff login; a hidden corner/gesture is enough until the Tab A11 kiosk setup.
+    var videoFailed by remember(video) { mutableStateOf(false) }
+    val playVideo = video != null && !videoFailed && File(video).exists()
+    Box(Modifier.fillMaxSize().combinedClickable(onClick = onTap, onLongClick = onStaff)) {
+        if (playVideo) {
+            AndroidView({ ctx ->
+                VideoView(ctx).apply {
+                    setOnPreparedListener { it.isLooping = true; it.setVolume(0f, 0f); start() }
+                    setOnErrorListener { _, _, _ -> videoFailed = true; true }
+                    setVideoPath(video)
+                }
+            }, Modifier.fillMaxSize(), onRelease = { it.stopPlayback() })
+            Text(welcome?.ifBlank { null } ?: "Tap to start", style = MaterialTheme.typography.headlineMedium,
+                color = Color.White, textAlign = TextAlign.Center,
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0x66000000)).padding(24.dp))
+        } else Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Text("CAPTURED KEEPS", style = MaterialTheme.typography.displayLarge, textAlign = TextAlign.Center)
+            Text("RECEIPT PHOTO STUDIO", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(48.dp))
+            Text(welcome?.ifBlank { null } ?: "Tap anywhere to start", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(12.dp))
+            Text("Little moments. Lifelong keeps.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
+}
 
 @Composable
 fun ChoosePackageScreen(event: Event, onPick: (String) -> Unit, onBack: () -> Unit) =
@@ -164,6 +193,7 @@ fun PaymentScreen(
     pkg: SessionPackage,
     error: String?,
     unused: List<LedgerEntry.Sale>,
+    qr: ImageBitmap?,
     onConfirm: (PaymentPath, pin: String, tendered: String?, reference: String?) -> Unit,
     onResume: (saleId: String, pin: String) -> Unit,
     onBack: () -> Unit,
@@ -177,13 +207,15 @@ fun PaymentScreen(
     val change = runCatching { Centavos.parse(tendered) - pkg.price }.getOrNull()
 
     Row(Modifier.fillMaxSize().padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("${pkg.name} · ${pkg.price}", style = MaterialTheme.typography.displayLarge)
             Text(when (path) {
                 PaymentPath.CUSTOMER_QR -> "Scan the booth QR code with your e-wallet and pay ${pkg.price}. Then show staff your confirmation."
                 PaymentPath.CASH_VIA_STAFF -> "Hand ${pkg.price} in cash to staff. Staff will pay the booth QR for you."
             }, style = MaterialTheme.typography.bodyLarge)
-            Spacer(Modifier.weight(1f))
+            // Fixed size so it can't be squeezed on short screens; the column scrolls instead.
+            if (qr != null && resume == null) Image(qr, "Booth payment QR code", Modifier.size(280.dp)
+                .background(Color.White).padding(8.dp), contentScale = ContentScale.Fit)
             TextButton(onBack) { Text("Back", style = MaterialTheme.typography.labelLarge) }
         }
         // Scrolls so the confirm button stays reachable on short screens / with the keyboard open.

@@ -130,3 +130,18 @@
   - `MigrationTest` now starts from a database built exactly like a real v1 install (guards included), and checks the rule still holds after upgrading.
 - On the phone: upgrade kept owner/staff/sales; ₱50 partial refund with reason; Ana disabled → PIN refused.
 - Tests: 67 passing (core 29, data 20 incl. migration, app 18).
+
+## 2026-11-23 — Idle video, welcome text, event dates, payment QR (pre-printer list, step 2)
+
+- Committed void/refund + disable staff as `9a356fb`.
+- `Media`: copies owner-picked files into app storage (works offline, survives the original being deleted); checks a video is playable.
+- Idle screen: event video on a silent loop (Android `VideoView`, no new library) with the event's welcome text; branded screen if no video or it fails.
+- Event editor: start/end date pickers, idle video choose/change/remove. Events list: dates, "Scheduled" label, warning when the idle video is missing.
+- Owner "Payment QR" page; the QR shows on the payment screen (fixed size, column scrolls on short screens).
+- Kiosk now catches Android Back: backs out of package/payment/free sessions, otherwise ignored — it never closes the app.
+- On the phone (test pattern video + placeholder QR, removed from shared storage afterwards):
+  - Found: the photo picker (Google Play backport on Android 11) didn't list files added minutes earlier → switched both pickers to Android's file browser.
+  - This phone's file app also wouldn't list the pushed test file, so display was verified by placing the files in app storage. Picking real files is left for the owner (DEVICE_TESTING A21).
+  - Found + fixed: QR squeezed to a thin line on a short screen; welcome text too big over video; Back closed the app.
+  - Video loops, date picker works, QR shows.
+- Tests: 68 passing (core 29, data 20, app 19).

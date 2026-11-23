@@ -52,10 +52,10 @@ class ScreenshotTest {
         CapturedKeepsTheme { Surface(color = MaterialTheme.colorScheme.background) { content() } }
     }
 
-    @Test fun kioskIdle() = kiosk { IdleScreen({}, {}) }
+    @Test fun kioskIdle() = kiosk { IdleScreen("Welcome to Maria & Jose's Wedding! Tap to start", null, {}, {}) }
     @Test fun kioskChoosePackage() = kiosk { ChoosePackageScreen(event, {}, {}) }
     @Test fun kioskPaymentCash() = kiosk {
-        PaymentScreen(event.packages[0], "Wrong PIN", emptyList(), { _, _, _, _ -> }, { _, _ -> }, {}, PaymentPath.CASH_VIA_STAFF)
+        PaymentScreen(event.packages[0], "Wrong PIN", emptyList(), null, { _, _, _, _ -> }, { _, _ -> }, {}, PaymentPath.CASH_VIA_STAFF)
     }
     @Test fun kioskReview() = kiosk { ReviewScreen(strip, 2, false, {}, {}, null) }
     @Test fun kioskPrintFailed() = kiosk { PrintingScreen(strip, "Printer is out of paper", {}) }
@@ -77,7 +77,8 @@ class ScreenshotTest {
         TotalsPage(listOf(event), EventTotals(event, l.summary(), 2, 3, mapOf(ana.id to "Ana", owner.id to "Owner")), {}, {}, {}, null)
     }
     @Test fun staffEvents() = kiosk {
-        EventsPage(listOf(event, event.copy(id = "d", name = "Debut Party", status = EventStatus.DRAFT, packages = emptyList())),
+        EventsPage(listOf(event.copy(startDate = java.time.LocalDate.of(2026, 12, 12)),
+            event.copy(id = "d", name = "Debut Party", status = EventStatus.DRAFT, packages = emptyList(), startDate = java.time.LocalDate.of(2099, 1, 9))),
             null, {}, {}, {}, { _, _ -> })
     }
     @Test fun staffPayments() = kiosk {
@@ -92,7 +93,8 @@ class ScreenshotTest {
             com.capturedkeeps.data.PaymentInfo(a, false, Centavos.ZERO, SessionState.COMPLETED, unused = false),
         ), ownerTools = true, error = null, onBack = {}, onVoid = { _, _ -> }, onRefund = { _, _, _ -> })
     }
-    @Test fun staffEventEditor() = kiosk { EventEditor(event, null, {}, {}) }
+    @Test fun staffPaymentQrEmpty() = kiosk { PaymentQrPage(null, null, {}, {}, {}) }
+    @Test fun staffEventEditor() = kiosk { EventEditor(event.copy(startDate = java.time.LocalDate.of(2026, 12, 12), idleMedia = "/x.mp4"), null, {}, {}) }
 
     /** Full-size strips drawn with Android Canvas → app/build/samples, to compare with core/build/samples. */
     @Test fun androidStrips() {
