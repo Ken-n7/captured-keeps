@@ -188,3 +188,11 @@
 - On the phone: portrait idle/payment/session, rotation mid-payment kept typed text, camera-denied recovery screen (A3) checked, photos upright. Phone's auto-rotate setting restored.
 - Tests: 88 passing (core 32, data 24, app 32 screenshots/renders incl. 12 responsive).
 - Kiosk is now full-screen (status and navigation bars hidden; swipe from the edge shows them briefly). Verified on the phone.
+
+## 2026-11-24 — GitHub, pre-release, walkthrough video
+
+- Pushed to a private GitHub repo (`Ken-n7/captured-keeps`) and published pre-release **v0.9.0-pilot** with the signed APK (no AI attribution anywhere).
+- Walkthrough video (5:02, landscape 1920×1080): every part of the app recorded on the phone, Kokoro narration (voice `am_michael`), burned-in captions (+ `.srt`), music "Wallpaper" by Kevin MacLeod (incompetech.com, CC BY 4.0, credited on the end card), loudness normalised to −16 LUFS.
+  - `presentation/build.py` rebuilds it from the recordings; outputs live in `presentation/out/` (git-ignored).
+  - Recording setup: phone temporarily set to a 16:9 1280×720 dp display, landscape, Do Not Disturb; scrcpy recorded the screen (this phone blocks `screenrecord`). All phone settings and the debug app's test data were restored afterwards.
+  - The idle video was attached to the demo event off-camera (this phone's file picker can't list files, DEVICE_TESTING A21).

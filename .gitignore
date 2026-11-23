@@ -23,3 +23,6 @@ samples/photos/*
 *.jks
 *.keystore
 .env
+
+# Walkthrough video outputs and recordings (large, regenerable)
+presentation/out/
