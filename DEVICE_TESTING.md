@@ -13,12 +13,12 @@ Legend: ⏳ not built yet · 🔨 built, waiting for device · ✅ verified on d
 | # | Test | Status | Notes |
 |---|---|---|---|
 | A1 | App installs and opens (debug APK) | 🔨 | `android/app/build/outputs/apk/debug/app-debug.apk` |
-| A2 | Brand theme looks right: colors, fonts, text sizes readable | 🔨 | Placeholder wordmark screen |
+| A2 | Brand theme looks right: colors, fonts, text sizes readable | 🔨 | Virtual printer screen (app opens on it for now) |
 | A3 | Camera permission prompt + explanation; denied → clear recovery screen | ⏳ | |
 | A4 | Live camera preview, countdown, capture N shots | ⏳ | Front camera |
 | A5 | Review / retake within package limit | ⏳ | |
-| A6 | Strip drawn on device (Android Canvas) matches laptop sample | ⏳ | Fonts differ slightly; photo processing identical |
-| A7 | Virtual printer screen shows the exact 576-dot image | ⏳ | |
+| A6 | Strip drawn on device (Android Canvas) matches laptop sample | 🔨 | Matches on the laptop's Android renderer (`app/build/samples` vs `core/build/samples`); device fonts may differ slightly |
+| A7 | Virtual printer screen shows the exact 576-dot image | 🔨 | 1 dot = 1 screen pixel; check sliders feel responsive (renders on main thread) |
 | A8 | Idle video loops; tap to start; missing/broken video → branded fallback screen | ⏳ | MP4 |
 | A9 | Inactivity timeout returns to idle | ⏳ | Default 60 s |
 | A10 | Records saved to on-device database survive app kill + phone restart | 🔨 | Laptop-tested (file reopen); needs screens that save data to try on device |

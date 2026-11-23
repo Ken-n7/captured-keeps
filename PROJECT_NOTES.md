@@ -268,7 +268,7 @@ Plan:
 1. ✅ Android project + brand design system (ivory/charcoal/taupe).
 2. ✅ Thermal image processing (no printer needed — judge sample strips on screen).
 3. ✅ States/validation (§4) as business rules, then ✅ local database.
-4. Strip drawn on Android + **virtual printer** screen (shows the exact 576px black-and-white image instead of printing).
+4. ✅ Strip drawn on Android + **virtual printer** screen (shows the exact 576px black-and-white image instead of printing).
    Kiosk flow UI — no emulator on this laptop (§5.2), so screens are checked with screenshot tests, camera on a spare phone/tablet.
 5. Admin: event setup, attendant PIN, totals, CSV export.
 6. **When hardware arrives:** Bluetooth/USB printer output, real-camera tuning, pilot test.

@@ -73,3 +73,13 @@
   - Schema exported to `android/data/schemas/` (needed to write migrations later without losing data).
 - Tests: 32 passing (6 new database tests: round-trips, audit, append-only, one-payment-one-session, restart recovery, survives close/reopen). Debug APK still builds.
 - Not yet: sync columns (added with a migration when cloud sync is built), custom strip layouts saved in the database (presets live in code for now), PIN storage (with the login screens).
+
+## 2026-11-23 — Android strip + virtual printer (build order step 4)
+
+- Committed step 3b as `f709cab`.
+- `AndroidStrip`: draws the same `StripPlan` with Android Canvas, same photo processing, then dithers to printer dots. Side-by-side with the laptop preview: identical size and layout, only fonts differ slightly.
+- `VirtualPrinterScreen` (app now opens on it): strip shown dot-for-dot, layout preset chips, dithering choice, brightness/contrast/gamma sliders, auto levels, reset; shows dots, paper length (mm) and bytes to send.
+- Stand-in photos moved to `core` (`SamplePhotos`) so the app can show strips before the camera exists.
+- Screenshot tests with Paparazzi (real Android rendering on the laptop, no emulator): 3 screen snapshots committed in `app/src/test/snapshots/`, plus full-size Android strips written to `app/build/samples/`.
+  - Used Paparazzi 2.0.0-alpha02: newer alphas need Java 21 and pull in Android build tools 9 (clashes with our 8.13).
+- Tests: 36 passing (core 26, data 6, app 4). Debug APK builds.

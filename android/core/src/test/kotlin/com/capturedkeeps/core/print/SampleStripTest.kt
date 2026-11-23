@@ -23,7 +23,7 @@ class SampleStripTest {
             .listFiles { f -> f.extension.lowercase() in setOf("jpg", "jpeg", "png") }
             ?.sorted()?.mapNotNull { ImageIO.read(it)?.toGray() }
             .orEmpty()
-            .ifEmpty { (1..4).map { synthetic(it) } }
+            .ifEmpty { SamplePhotos.DEFAULT }
 
         val info = StripInfo("Maria & Jose's Wedding", LocalDateTime.of(2026, 11, 23, 18, 42), 42)
         for (layout in StripLayout.PRESETS) {
@@ -79,23 +79,5 @@ class SampleStripTest {
         val out = BufferedImage(width, height, BufferedImage.TYPE_BYTE_BINARY)
         for (y in 0 until height) for (x in 0 until width) out.setRGB(x, y, if (this[x, y]) 0 else 0xFFFFFF)
         return out
-    }
-
-    /** Smooth gradients and shaded circles — exercises the full tone range without needing real photos. */
-    private fun synthetic(seed: Int): GrayImage {
-        val w = 800; val h = 600
-        val circles = List(3) { i -> Triple(150 + (seed * 97 + i * 211) % 500, 150 + (seed * 53 + i * 137) % 300, 80 + (seed * 31 + i * 41) % 70) }
-        return GrayImage(w, h, IntArray(w * h) { i ->
-            val x = i % w; val y = i / w
-            var v = 220.0 - 140.0 * y / h
-            for ((cx, cy, r) in circles) {
-                val dx = (x - cx).toDouble(); val dy = (y - cy).toDouble()
-                if (dx * dx + dy * dy < r * r) {
-                    val lx = x - (cx - r * 0.4); val ly = y - (cy - r * 0.4)
-                    v = 255 - Math.sqrt(lx * lx + ly * ly) / (1.6 * r) * 230
-                }
-            }
-            v.toInt().coerceIn(0, 255)
-        })
     }
 }
