@@ -14,7 +14,7 @@ Legend: ⏳ not built yet · 🔨 built, waiting for device · ✅ verified on d
 |---|---|---|---|
 | A1 | App installs and opens (debug APK) | ✅ | Realme 3 Pro, Android 11, 2026-11-23 |
 | A2 | Brand theme looks right: colors, fonts, text sizes readable | ✅ | Realme 3 Pro, Android 11, 2026-11-23. Screens designed for the tablet; on the phone, landscape is tight but usable |
-| A3 | Camera permission prompt + explanation; denied → clear recovery screen | 🔨 | Prompt shown and "allow" works (Realme 3 Pro, Android 11, 2026-11-23). Denied → recovery screen not tried yet |
+| A3 | Camera permission prompt + explanation; denied → clear recovery screen | ✅ | Denied → "Camera access needed" screen → Allow camera → works (Realme 3 Pro, 2026-11-23) |
 | A4 | Live camera preview, countdown, capture N shots | ✅ | Realme 3 Pro, Android 11, 2026-11-23. Preview, 3-2-1, flash, 3 shots saved |
 | A5 | Review / retake within package limit | 🔨 | Review screen ✅; retake not tried on device yet |
 | A6 | Strip drawn on device (Android Canvas) matches laptop sample | ✅ | Strip built from real camera photos on Realme 3 Pro, Android 11, 2026-11-23 |
@@ -37,6 +37,7 @@ Legend: ⏳ not built yet · 🔨 built, waiting for device · ✅ verified on d
 | A23 | Event start/end date picker | ✅ | Realme 3 Pro, 2026-11-23 |
 | A24 | Edit a layout → saved as new version → next session uses it and records the version; reset to built-in | ✅ | Classic 3 → 2 photos (v2) → session printed 2 photos, recorded v2 → reset (v3). DB upgrade v2→v3 kept all data (Realme 3 Pro, 2026-11-23) |
 | A25 | Print failure path: error on customer screen → "print later" → staff switch printer → Check prints → Print again | ✅ | Bluetooth off → "Printer problem: Bluetooth is off" → recovered, session completed, job done on attempt 2 (Realme 3 Pro, 2026-11-23) |
+| A26 | Responsive: portrait and landscape, rotation mid-step keeps typed input, photos upright after rotation | ✅ | Payment + full session in portrait, rotated payment screen kept text (Realme 3 Pro, 2026-11-23). Phone auto-rotate setting restored afterwards |
 
 ## B. Galaxy Tab A11 (when it arrives)
 
@@ -44,7 +45,7 @@ Legend: ⏳ not built yet · 🔨 built, waiting for device · ✅ verified on d
 |---|---|---|---|
 | B1 | Repeat all of section A on the tablet | ⏳ | |
 | B2 | Front camera quality + angle at booth height | ⏳ | Test with the ring light |
-| B3 | Layout fits tablet screen in chosen orientation; touch targets easy to hit | ⏳ | |
+| B3 | Layout fits tablet screen in chosen orientation; touch targets easy to hit | 🔨 | App is responsive (portrait + landscape, text scales to screen). Screenshot tests at 8.7" tablet size fit without scrolling; confirm on the real tablet and pick the mount orientation |
 | B4 | Performance: capture → strip ready time; idle video smooth | ⏳ | |
 | B5 | Battery / heat over a few hours plugged in | ⏳ | |
 | B6 | USB-C OTG works with the printer cable (and charging at the same time, if needed) | ⏳ | May need a powered OTG hub |

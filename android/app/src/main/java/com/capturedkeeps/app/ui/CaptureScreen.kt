@@ -21,7 +21,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,6 +74,10 @@ fun CaptureScreen(
     val preview = remember { PreviewView(context).apply { scaleType = PreviewView.ScaleType.FILL_CENTER } }
     val capture = remember { ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build() }
     var ready by remember { mutableStateOf(false) }
+    // The app handles rotation itself, so tell the camera which way is up whenever the screen turns.
+    val view = LocalView.current
+    val orientation = LocalConfiguration.current.orientation
+    LaunchedEffect(orientation) { view.display?.rotation?.let { capture.targetRotation = it } }
     var count by remember { mutableIntStateOf(0) }
     var flash by remember { mutableStateOf(false) }
 
@@ -113,7 +119,7 @@ fun CaptureScreen(
         AndroidView({ preview }, Modifier.fillMaxSize())
         Text("Photo $shot of $of", color = Color.White, style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.align(Alignment.TopCenter).padding(24.dp))
-        if (count > 0) Text("$count", color = Color.White, fontSize = 160.sp, fontWeight = FontWeight.Bold,
+        if (count > 0) Text("$count", color = Color.White, fontSize = 160.sp * LocalUiScale.current, fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.Center))
         if (onCancel != null) TextButton(onCancel, Modifier.align(Alignment.TopStart).padding(16.dp)) {
             Text("Cancel", color = Color.White, style = MaterialTheme.typography.labelLarge)

@@ -292,6 +292,10 @@ Plan:
    Needs the printer to verify (DEVICE_TESTING C1–C12). Not automatic: re-printing queued jobs on reconnect (staff retry instead).
 10. ✅ Release build: signed, R8-shrunk, 64-bit ARM only (3.4 MB vs 15 MB debug), version 0.9.0 (pilot).
     Debug installs as a separate app "Captured Keeps (debug)" (`com.capturedkeeps.app.debug`) so testing never touches real data.
+11. ✅ Responsive UI: no orientation lock (works portrait or landscape — pick the mount when the tablet arrives); text and
+    big spacing scale with the screen's shorter side (×0.7–1.0); strip/payment screens sit side by side when wide and stack when tall;
+    package cards wrap. Rotation is handled in-app (no restart), so it can't re-send a print or lose typed input.
+    For a portrait booth, use a portrait idle video (landscape videos get black bars).
 
 ### Release build — how to
 

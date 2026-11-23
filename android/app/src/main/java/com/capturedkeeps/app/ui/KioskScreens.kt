@@ -172,17 +172,19 @@ fun IdleScreen(welcome: String?, video: String?, onTap: () -> Unit, onStaff: () 
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChoosePackageScreen(event: Event, onPick: (String) -> Unit, onBack: () -> Unit) =
-    Column(Modifier.fillMaxSize().padding(48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.fillMaxSize().padding(48.dp.scaled()).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(event.name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("Choose your strip", style = MaterialTheme.typography.displayLarge)
-        Spacer(Modifier.height(40.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            for (p in event.packages) Card(onClick = { onPick(p.id) }, Modifier.width(280.dp),
+        Spacer(Modifier.height(40.dp.scaled()))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp.scaled(), Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(24.dp.scaled())) {
+            for (p in event.packages) Card(onClick = { onPick(p.id) }, Modifier.width(280.dp.scaled()),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = CardDefaults.outlinedCardBorder()) {
-                Column(Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.padding(28.dp.scaled()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(p.name, style = MaterialTheme.typography.headlineMedium)
                     Text(if (p.price == Centavos.ZERO) "Free" else p.price.toString(), style = MaterialTheme.typography.titleLarge)
                     Text("${p.copies} ${if (p.copies == 1) "print" else "prints"} · ${p.retakes} retakes",
@@ -190,7 +192,7 @@ fun ChoosePackageScreen(event: Event, onPick: (String) -> Unit, onBack: () -> Un
                 }
             }
         }
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(24.dp.scaled()))
         TextButton(onBack) { Text("Back", style = MaterialTheme.typography.labelLarge) }
     }
 
@@ -214,20 +216,20 @@ fun PaymentScreen(
     var pin by remember { mutableStateOf("") }
     val change = runCatching { Centavos.parse(tendered) - pkg.price }.getOrNull()
 
-    Row(Modifier.fillMaxSize().padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    SplitPane(equal = true, first = { m -> Column(m.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("${pkg.name} · ${pkg.price}", style = MaterialTheme.typography.displayLarge)
             Text(when (path) {
                 PaymentPath.CUSTOMER_QR -> "Scan the booth QR code with your e-wallet and pay ${pkg.price}. Then show staff your confirmation."
                 PaymentPath.CASH_VIA_STAFF -> "Hand ${pkg.price} in cash to staff. Staff will pay the booth QR for you."
             }, style = MaterialTheme.typography.bodyLarge)
             // Fixed size so it can't be squeezed on short screens; the column scrolls instead.
-            if (qr != null && resume == null) Image(qr, "Booth payment QR code", Modifier.size(280.dp)
+            if (qr != null && resume == null) Image(qr, "Booth payment QR code", Modifier.size(280.dp.scaled())
                 .background(Color.White).padding(8.dp), contentScale = ContentScale.Fit)
             TextButton(onBack) { Text("Back", style = MaterialTheme.typography.labelLarge) }
         }
-        // Scrolls so the confirm button stays reachable on short screens / with the keyboard open.
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    }, second = { m ->
+        // Scrolls so the confirm button stays reachable with the keyboard open.
+        Column(m.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("STAFF", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(resume == null && path == PaymentPath.CUSTOMER_QR, { path = PaymentPath.CUSTOMER_QR; resume = null }, { Text("Customer paid QR") })
@@ -256,23 +258,22 @@ fun PaymentScreen(
                 Text(if (resume != null) "Resume session" else "Payment received — start session", style = MaterialTheme.typography.labelLarge)
             }
         }
-    }
+    })
 }
 
 @Composable
 fun ReviewScreen(strip: ImageBitmap?, retakesLeft: Int, failed: Boolean, onRetake: () -> Unit, onPrint: () -> Unit, onCancel: (() -> Unit)?) =
-    Row(Modifier.fillMaxSize().padding(32.dp), horizontalArrangement = Arrangement.spacedBy(48.dp), verticalAlignment = Alignment.CenterVertically) {
-        StripView(strip, Modifier.fillMaxHeight())
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    SplitPane(first = { m -> StripView(strip, m) }) { m ->
+        Column(m, verticalArrangement = Arrangement.spacedBy(16.dp.scaled())) {
             when {
                 failed -> Text("We couldn't prepare your strip.", style = MaterialTheme.typography.displayLarge)
                 strip == null -> Text("Preparing your strip…", style = MaterialTheme.typography.displayLarge)
                 else -> Text("Love it?", style = MaterialTheme.typography.displayLarge)
             }
-            Button(onPrint, enabled = strip != null, modifier = Modifier.fillMaxWidth().height(64.dp)) {
+            Button(onPrint, enabled = strip != null, modifier = Modifier.fillMaxWidth().height(64.dp.scaled())) {
                 Text("Print my strip", style = MaterialTheme.typography.labelLarge)
             }
-            OutlinedButton(onRetake, enabled = retakesLeft > 0, modifier = Modifier.fillMaxWidth().height(64.dp)) {
+            OutlinedButton(onRetake, enabled = retakesLeft > 0, modifier = Modifier.fillMaxWidth().height(64.dp.scaled())) {
                 Text(if (retakesLeft > 0) "Retake all photos ($retakesLeft left)" else "No retakes left", style = MaterialTheme.typography.labelLarge)
             }
             if (onCancel != null) TextButton(onCancel) { Text("Cancel", style = MaterialTheme.typography.labelLarge) }
@@ -281,16 +282,15 @@ fun ReviewScreen(strip: ImageBitmap?, retakesLeft: Int, failed: Boolean, onRetak
 
 @Composable
 fun PrintingScreen(strip: ImageBitmap?, error: String?, onRetry: () -> Unit, onLater: () -> Unit = {}) =
-    Row(Modifier.fillMaxSize().padding(32.dp), horizontalArrangement = Arrangement.spacedBy(48.dp), verticalAlignment = Alignment.CenterVertically) {
-        StripView(strip, Modifier.fillMaxHeight())
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    SplitPane(first = { m -> StripView(strip, m) }) { m ->
+        Column(m, verticalArrangement = Arrangement.spacedBy(16.dp.scaled())) {
             if (error == null) {
                 Text("Printing…", style = MaterialTheme.typography.displayLarge)
                 LinearProgressIndicator(Modifier.fillMaxWidth())
             } else {
                 Text("Print didn't finish", style = MaterialTheme.typography.displayLarge)
                 Text("$error. Please call staff — you won't be charged again.", style = MaterialTheme.typography.bodyLarge)
-                Button(onRetry, Modifier.fillMaxWidth().height(64.dp)) { Text("Try printing again", style = MaterialTheme.typography.labelLarge) }
+                Button(onRetry, Modifier.fillMaxWidth().height(64.dp.scaled())) { Text("Try printing again", style = MaterialTheme.typography.labelLarge) }
                 TextButton(onLater) { Text("Staff: print it later from Check prints", style = MaterialTheme.typography.labelLarge) }
             }
         }
@@ -298,28 +298,30 @@ fun PrintingScreen(strip: ImageBitmap?, error: String?, onRetry: () -> Unit, onL
 
 @Composable
 fun DoneScreen(strip: ImageBitmap?, copies: Int, onDone: () -> Unit) =
-    Row(Modifier.fillMaxSize().padding(32.dp), horizontalArrangement = Arrangement.spacedBy(48.dp), verticalAlignment = Alignment.CenterVertically) {
-        StripView(strip, Modifier.fillMaxHeight())
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    SplitPane(first = { m -> StripView(strip, m) }) { m ->
+        Column(m, verticalArrangement = Arrangement.spacedBy(16.dp.scaled())) {
             Text("Here's your keep!", style = MaterialTheme.typography.displayLarge)
             Text(if (copies == 1) "Take your strip from the printer." else "Take your $copies strips from the printer.",
                 style = MaterialTheme.typography.bodyLarge)
             Text("Little moments. Lifelong keeps.", style = MaterialTheme.typography.headlineMedium)
-            Button(onDone, Modifier.fillMaxWidth().height(64.dp)) { Text("Done", style = MaterialTheme.typography.labelLarge) }
+            Button(onDone, Modifier.fillMaxWidth().height(64.dp.scaled())) { Text("Done", style = MaterialTheme.typography.labelLarge) }
         }
     }
 
 /** A strip scaled to fit; smooth filtering so the dither pattern doesn't shimmer when shrunk. */
 @Composable
 fun StripView(strip: ImageBitmap?, modifier: Modifier = Modifier) {
-    if (strip == null) Box(modifier.aspectRatio(0.37f).background(MaterialTheme.colorScheme.surface), Alignment.Center) { CircularProgressIndicator() }
-    else Image(strip, "Your photo strip", modifier.border(1.dp, MaterialTheme.colorScheme.outline),
+    // Keeps the strip's real shape whether it sits beside the buttons or above them.
+    val ratio = strip?.let { it.width.toFloat() / it.height } ?: 0.37f
+    val sized = modifier.aspectRatio(ratio, matchHeightConstraintsFirst = true)
+    if (strip == null) Box(sized.background(MaterialTheme.colorScheme.surface), Alignment.Center) { CircularProgressIndicator() }
+    else Image(strip, "Your photo strip", sized.border(1.dp, MaterialTheme.colorScheme.outline),
         contentScale = ContentScale.Fit, filterQuality = FilterQuality.Medium)
 }
 
 @Composable
 fun Message(title: String, body: String, actions: @Composable RowScope.() -> Unit) =
-    Column(Modifier.fillMaxSize().padding(64.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(64.dp.scaled()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Text(title, style = MaterialTheme.typography.displayLarge, textAlign = TextAlign.Center)
         Spacer(Modifier.height(16.dp))
         Text(body, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)

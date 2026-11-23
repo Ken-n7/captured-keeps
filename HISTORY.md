@@ -176,3 +176,14 @@
 - On the phone: backed up the old debug app's data, uninstalled it, installed release + debug, restored the test data into the debug app (rewrote stored file paths for the new app ID).
   Release build: full flow (setup → event → go live → paid session with camera → print → totals → layout editor → printer test page), no crashes. Release app data then cleared so it starts fresh.
 - Tests: 76 passing.
+
+## 2026-11-23 — Responsive UI (owner's suggestion)
+
+- Committed release build as `7231e22`.
+- Owner asked why screens scroll; answer: designed for a 1280×800 dp tablet, scrolling was a safety net for the phone. Owner suggested making it responsive instead → done:
+  - `LocalUiScale` (shorter side / 800 dp, clamped 0.7–1.0) scales typography and large paddings.
+  - `SplitPane`: side by side when wide, stacked when tall. Used by payment, review, printing, done.
+  - Package cards wrap (FlowRow); landscape lock removed; rotation handled in-app (`configChanges`) so it never restarts mid-print (which could have re-sent a strip) or loses typed input; camera target rotation follows the screen.
+- `ResponsiveTest`: package, payment and review screenshots at tablet portrait, 8.7" tablet, phone landscape, phone portrait.
+- On the phone: portrait idle/payment/session, rotation mid-payment kept typed text, camera-denied recovery screen (A3) checked, photos upright. Phone's auto-rotate setting restored.
+- Tests: 88 passing (core 32, data 24, app 32 screenshots/renders incl. 12 responsive).
