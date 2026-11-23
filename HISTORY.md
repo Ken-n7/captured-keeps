@@ -117,3 +117,16 @@
 - On the phone: created owner → booth blocked (no live event) → created "Test Party" + package → go live → added attendant Ana → cash sale ₱200/₱150 confirmed with Ana's PIN → totals "Ana: ₱150.00" → CSV saved and checked → Ana sees attendant tools only → killed app mid-print → "Did it print?" → No → Print again → completed. Test CSV removed from the phone afterwards.
 - Tests: 62 passing (core 29, data 17, app 16 screenshots + 1 strip render).
 - Not yet: idle video, payment QR image, layout editor/saved tuning, void/refund screens, disable staff, event dates, real printer, owner password reset.
+
+## 2026-11-23 — Payments (void/refund) + disable staff (pre-printer list, step 1)
+
+- Committed admin screens as `8a99081`.
+- `Staff.active`: disabled staff can't log in or confirm payments; still named on past sales. Last owner can't be disabled.
+- `Store.void` / `Store.refund` / `Store.payments` (each sale with voided, refunded, session state, unused). Refund screen only for owner-password logins.
+- Payments page from Totals, with reason dialogs; Active switch in the staff editor.
+- **First real database migration (v1 → v2)**, kept the phone's existing data:
+  - First attempt crashed on launch: v1's "one payment per session" rule was a partial unique index, which Room's post-migration check doesn't know about and rejects. Room rolled back, so no data was lost.
+  - Fix: the rule is now a pair of triggers (Room ignores triggers); the migration drops the old index and adds them.
+  - `MigrationTest` now starts from a database built exactly like a real v1 install (guards included), and checks the rule still holds after upgrading.
+- On the phone: upgrade kept owner/staff/sales; ₱50 partial refund with reason; Ana disabled → PIN refused.
+- Tests: 67 passing (core 29, data 20 incl. migration, app 18).

@@ -168,4 +168,37 @@ class StoreTest {
         assertTrue(store.event(draft.id)!!.hidden)
         assertEquals(listOf("draft→live", "live→completed", "false→true"), store.audit(draft.id).map { "${it.oldValue}→${it.newValue}" })
     }
+
+    @Test fun `disabled staff can't log in, the last owner can't be disabled`() = test {
+        store.saveStaff(owner, pin = "4321", password = "correct horse")
+        store.saveStaff(ana, pin = "1111")
+        store.saveStaff(ana.copy(active = false))
+        assertNull(store.staffByPin("1111"))
+        assertEquals(false, store.staff().single { it.id == ana.id }.active)
+        assertTrue("only owner" in assertFailsWith<RuleBroken> { store.saveStaff(owner.copy(active = false)) }.message!!)
+        store.saveStaff(ana.copy(active = true))
+        assertEquals(ana, store.staffByPin("1111")) // PIN kept while disabled
+    }
+
+    @Test fun `payments list, void unused, refund used`() = test {
+        store.saveEvent(event)
+        val used = paidSale()
+        store.startSession(session(used).copy(state = SessionState.STARTED))
+        store.updateSession(store.sessionsForSale(used.id).single().beginCapture())
+        val unused = paidSale()
+
+        val before = store.payments(event.id).associateBy { it.sale.id }
+        assertTrue(before[unused.id]!!.unused && before[unused.id]!!.session == null)
+        assertEquals(SessionState.CAPTURING, before[used.id]!!.session)
+
+        assertFailsWith<RuleBroken> { store.void(used.id, ana, "oops", now) } // session started → refund instead
+        store.void(unused.id, ana, "Customer left after the crash", now)
+        assertFailsWith<RuleBroken> { store.refund(used.id, Centavos.pesos(50), ana, "jam", now) } // owner only
+        store.refund(used.id, Centavos.pesos(50), owner, "Smudged print", now)
+
+        val after = store.payments(event.id).associateBy { it.sale.id }
+        assertTrue(after[unused.id]!!.voided && !after[unused.id]!!.unused)
+        assertEquals(Centavos.pesos(50), after[used.id]!!.refunded)
+        assertEquals(Centavos.pesos(100), store.ledger().forEvent(event.id).summary().net)
+    }
 }

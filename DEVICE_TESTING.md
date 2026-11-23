@@ -30,6 +30,8 @@ Legend: ⏳ not built yet · 🔨 built, waiting for device · ✅ verified on d
 | A16 | Airplane mode: full free-event flow still works | ⏳ | |
 | A17 | CSV export opens in a spreadsheet app | ✅ | Saved via Android save dialog to Downloads; contents checked on the laptop (Realme 3 Pro, 2026-11-23). Not yet opened in a spreadsheet app |
 | A18 | Event created on device → go live → paid cash session → totals show cash held by the attendant | ✅ | Realme 3 Pro, 2026-11-23 |
+| A19 | App update keeps existing records (database migration) | ✅ | v1 → v2 over real test data: owner login, staff and sales kept (Realme 3 Pro, 2026-11-23). First attempt crashed and rolled back safely — fixed |
+| A20 | Refund (owner password) and void; disabled staff PIN refused | ✅ | Partial refund ₱50 with reason; Ana disabled → "Wrong PIN or password" (Realme 3 Pro, 2026-11-23). Void tested on laptop only |
 
 ## B. Galaxy Tab A11 (when it arrives)
 

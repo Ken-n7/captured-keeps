@@ -1,6 +1,7 @@
 package com.capturedkeeps.data
 
 import androidx.room.*
+import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
@@ -51,21 +52,42 @@ interface CkDao {
 @Database(
     entities = [StaffRow::class, EventRow::class, PackageRow::class, SessionRow::class, PrintJobRow::class,
         LedgerRow::class, AuditRow::class],
-    version = 1,
+    version = 2,
+    // Every schema change from here on gets a migration so tablets keep their records (schemas/ holds each version).
+    autoMigrations = [AutoMigration(from = 1, to = 2, spec = V1toV2::class)],
 )
 abstract class CkDatabase : RoomDatabase() {
     abstract fun dao(): CkDao
 }
 
-/** Rules SQLite enforces itself, so no code path (or future bug) can get around them. */
+/**
+ * Rules SQLite enforces itself, so no code path (or future bug) can get around them.
+ * Triggers, not indexes: Room validates indexes after a migration but ignores triggers.
+ */
+internal val APPEND_ONLY = listOf("ledger", "audit").flatMap { t ->
+    listOf(
+        "CREATE TRIGGER IF NOT EXISTS ${t}_no_update BEFORE UPDATE ON $t BEGIN SELECT RAISE(ABORT, '$t is append-only'); END",
+        "CREATE TRIGGER IF NOT EXISTS ${t}_no_delete BEFORE DELETE ON $t BEGIN SELECT RAISE(ABORT, '$t is append-only'); END",
+    )
+}
+
+/** One payment unlocks one session; a cancelled/failed session frees it again. */
+internal val ONE_SESSION_PER_SALE = listOf("INSERT" to "INSERT", "UPDATE" to "UPDATE OF saleId, state").map { (name, on) ->
+    """CREATE TRIGGER IF NOT EXISTS sessions_one_per_sale_${name.lowercase()} BEFORE $on ON sessions
+       WHEN NEW.saleId IS NOT NULL AND NEW.state NOT IN ('CANCELLED','FAILED')
+        AND EXISTS (SELECT 1 FROM sessions WHERE saleId = NEW.saleId AND id != NEW.id AND state NOT IN ('CANCELLED','FAILED'))
+       BEGIN SELECT RAISE(ABORT, 'This payment was already used for a session'); END"""
+}
+
 private object Guards : RoomDatabase.Callback() {
-    override fun onCreate(connection: SQLiteConnection) {
-        for (table in listOf("ledger", "audit")) {
-            connection.execSQL("CREATE TRIGGER ${table}_no_update BEFORE UPDATE ON $table BEGIN SELECT RAISE(ABORT, '$table is append-only'); END")
-            connection.execSQL("CREATE TRIGGER ${table}_no_delete BEFORE DELETE ON $table BEGIN SELECT RAISE(ABORT, '$table is append-only'); END")
-        }
-        // One payment unlocks one session; a cancelled/failed session frees it again.
-        connection.execSQL("CREATE UNIQUE INDEX sessions_one_per_sale ON sessions(saleId) WHERE saleId IS NOT NULL AND state NOT IN ('CANCELLED','FAILED')")
+    override fun onCreate(connection: SQLiteConnection) = (APPEND_ONLY + ONE_SESSION_PER_SALE).forEach(connection::execSQL)
+}
+
+/** v2: staff.active; v1's partial unique index (which Room's validation rejects) becomes triggers. */
+class V1toV2 : AutoMigrationSpec {
+    override fun onPostMigrate(connection: SQLiteConnection) {
+        connection.execSQL("DROP INDEX IF EXISTS sessions_one_per_sale")
+        ONE_SESSION_PER_SALE.forEach(connection::execSQL)
     }
 }
 

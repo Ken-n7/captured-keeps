@@ -80,6 +80,18 @@ class ScreenshotTest {
         EventsPage(listOf(event, event.copy(id = "d", name = "Debut Party", status = EventStatus.DRAFT, packages = emptyList())),
             null, {}, {}, {}, { _, _ -> })
     }
+    @Test fun staffPayments() = kiosk {
+        val now = java.time.Instant.parse("2026-11-23T10:00:00Z")
+        var l = Ledger()
+        val a = l.sale(event, event.packages[0].id, PaymentPath.CASH_VIA_STAFF, ana, now, Centavos.pesos(200), "REF-1").also { l += it }
+        val b = l.sale(event, event.packages[1].id, PaymentPath.CUSTOMER_QR, owner, now.plusSeconds(600)).also { l += it }
+        val c = l.sale(event, event.packages[0].id, PaymentPath.CUSTOMER_QR, ana, now.plusSeconds(900), qrReference = "REF-3").also { l += it }
+        PaymentsPage(event, listOf(
+            com.capturedkeeps.data.PaymentInfo(c, false, Centavos.ZERO, null, unused = true),
+            com.capturedkeeps.data.PaymentInfo(b, false, Centavos.pesos(100), SessionState.COMPLETED, unused = false),
+            com.capturedkeeps.data.PaymentInfo(a, false, Centavos.ZERO, SessionState.COMPLETED, unused = false),
+        ), ownerTools = true, error = null, onBack = {}, onVoid = { _, _ -> }, onRefund = { _, _, _ -> })
+    }
     @Test fun staffEventEditor() = kiosk { EventEditor(event, null, {}, {}) }
 
     /** Full-size strips drawn with Android Canvas → app/build/samples, to compare with core/build/samples. */

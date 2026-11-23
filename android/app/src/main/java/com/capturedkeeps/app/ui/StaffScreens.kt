@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.capturedkeeps.core.domain.*
 import com.capturedkeeps.core.print.StripLayout
 import com.capturedkeeps.data.Login
+import com.capturedkeeps.data.PaymentInfo
 import com.capturedkeeps.data.Store
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -46,6 +47,7 @@ class Actions(private val scope: CoroutineScope) {
 private sealed interface StaffPage {
     data object Menu : StaffPage
     data object Totals : StaffPage
+    data class Payments(val event: Event) : StaffPage
     data object Prints : StaffPage
     data object Events : StaffPage
     data class EditEvent(val event: Event?) : StaffPage
@@ -87,8 +89,15 @@ fun StaffArea(store: Store, login: Login, scope: CoroutineScope, onExit: () -> U
                 }
             }
             TotalsPage(events, totals, onPick = { selected = it }, onBack = back,
+                onPayments = { totals?.let { page = StaffPage.Payments(it.event) } },
                 onExport = if (login.ownerTools && totals != null) ({ export.launch("${totals!!.event.name} sales.csv") }) else null,
                 error = actions.error)
+        }
+        is StaffPage.Payments -> {
+            val rows by produceState(emptyList<PaymentInfo>(), p, refresh) { value = store.payments(p.event.id) }
+            PaymentsPage(p.event, rows, login.ownerTools, actions.error, onBack = { actions.error = null; page = StaffPage.Totals },
+                onVoid = { id, reason -> actions.run { store.void(id, login.staff, reason, Instant.now()); refresh++ } },
+                onRefund = { id, amount, reason -> actions.run { store.refund(id, Centavos.parse(amount), login.staff, reason, Instant.now()); refresh++ } })
         }
         StaffPage.Prints -> {
             val unknown by produceState(emptyList<PrintJob>(), refresh) { value = store.printsToConfirm() }
@@ -235,8 +244,13 @@ private fun Tile(title: String, subtitle: String, onClick: () -> Unit) =
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TotalsPage(events: List<Event>, totals: EventTotals?, onPick: (String) -> Unit, onBack: () -> Unit, onExport: (() -> Unit)?, error: String?) =
-    Page("Totals", onBack, error, actions = { if (onExport != null) OutlinedButton(onExport) { Text("Export CSV") } }) {
+fun TotalsPage(events: List<Event>, totals: EventTotals?, onPick: (String) -> Unit, onBack: () -> Unit, onExport: (() -> Unit)?, error: String?,
+               onPayments: () -> Unit = {}) =
+    Page("Totals", onBack, error, actions = {
+        if (totals != null) OutlinedButton(onPayments) { Text("Payments") }
+        Spacer(Modifier.width(8.dp))
+        if (onExport != null) OutlinedButton(onExport) { Text("Export CSV") }
+    }) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (e in events) FilterChip(e.id == totals?.event?.id, { onPick(e.id) }, { Text("${e.name} · ${e.status.label}") })
         }
@@ -406,10 +420,12 @@ fun StaffListPage(staff: List<Staff>, onBack: () -> Unit, onEdit: (Staff) -> Uni
         for (s in staff) Card(onClick = { onEdit(s) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Row(Modifier.padding(16.dp).fillMaxWidth()) {
                 Text(s.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                Text(s.role.name.lowercase(), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(s.role.name.lowercase() + if (s.active) "" else " · disabled", style = MaterialTheme.typography.bodyLarge,
+                    color = if (s.active) MaterialTheme.colorScheme.onSurfaceVariant else Brand.Warn)
             }
         }
-        // ponytail: no remove yet — staff appear in past sales; add "disabled" when someone leaves.
+        Text("Staff who leave are disabled, not deleted — their name stays on past sales.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 
 @Composable
@@ -417,16 +433,23 @@ fun StaffEditor(staff: Staff?, error: String?, onBack: () -> Unit, onSave: (Staf
     var name by remember { mutableStateOf(staff?.name ?: "") }
     var pin by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var active by remember { mutableStateOf(staff?.active ?: true) }
     val owner = staff?.role == Role.OWNER
     Page(staff?.name ?: "New attendant", onBack, error, actions = {
         Button({
-            onSave(staff?.copy(name = name.trim()) ?: Staff(name = name.trim(), role = Role.ATTENDANT),
+            onSave(staff?.copy(name = name.trim(), active = active) ?: Staff(name = name.trim(), role = Role.ATTENDANT),
                 pin.ifEmpty { null }, password.ifEmpty { null })
         }, enabled = name.isNotBlank()) { Text("Save") }
     }) {
         Field("Name", name) { name = it }
         Field(if (staff == null) "PIN (4–6 digits)" else "New PIN (leave empty to keep)", pin, secret = true, digits = true) { pin = it }
         if (owner) Field("New password (leave empty to keep)", password, secret = true) { password = it }
+        if (staff != null) Row(verticalAlignment = Alignment.CenterVertically) {
+            Switch(active, { active = it })
+            Spacer(Modifier.width(12.dp))
+            Text(if (active) "Active — can log in and confirm payments" else "Disabled — can't log in or confirm payments",
+                style = MaterialTheme.typography.bodyLarge)
+        }
     }
 }
 
@@ -438,3 +461,70 @@ private fun Field(label: String, value: String, secret: Boolean = false, digits:
         keyboardOptions = KeyboardOptions(keyboardType = when {
             digits -> KeyboardType.NumberPassword; secret -> KeyboardType.Password; else -> KeyboardType.Text
         }))
+
+/** Every payment of an event. Void = cancel a payment that was never used; refund = give money back (owner password only). */
+@Composable
+fun PaymentsPage(event: Event, rows: List<PaymentInfo>, ownerTools: Boolean, error: String?, onBack: () -> Unit,
+                 onVoid: (saleId: String, reason: String) -> Unit, onRefund: (saleId: String, amount: String, reason: String) -> Unit) {
+    var voiding by remember { mutableStateOf<PaymentInfo?>(null) }
+    var refunding by remember { mutableStateOf<PaymentInfo?>(null) }
+    val names = event.packages.associate { it.id to it.name }
+    Page("Payments · ${event.name}", onBack, error) {
+        if (rows.isEmpty()) Text("No payments yet.", style = MaterialTheme.typography.bodyLarge)
+        for (p in rows) Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Row(Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("${CLOCK.format(p.sale.at)} · ${names[p.sale.packageId] ?: "Package"} · ${p.sale.amount}", style = MaterialTheme.typography.titleLarge)
+                    Text(listOfNotNull(
+                        if (p.sale.path == PaymentPath.CUSTOMER_QR) "Customer QR" else "Cash via staff",
+                        p.sale.qrReference?.let { "ref $it" } ?: "no reference",
+                    ).joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(p.statusText(), style = MaterialTheme.typography.bodyLarge, color = when {
+                        p.voided || p.refunded > Centavos.ZERO -> Brand.Error; p.unused -> Brand.Warn; else -> Brand.Ok
+                    })
+                }
+                if (p.unused && !p.voided) OutlinedButton({ voiding = p }) { Text("Void") }
+                if (ownerTools && !p.voided && p.refunded < p.sale.amount) OutlinedButton({ refunding = p }) { Text("Refund") }
+            }
+        }
+        if (!ownerTools) Text("Refunds need the owner password login.", style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    voiding?.let { p ->
+        ReasonDialog("Void ${p.sale.amount}?", "Use this when the customer paid but never had their session (and you returned the money or they left).",
+            amount = null, onDismiss = { voiding = null }) { _, reason -> onVoid(p.sale.id, reason); voiding = null }
+    }
+    refunding?.let { p ->
+        val left = p.sale.amount - p.refunded
+        ReasonDialog("Refund (up to $left)", "Record money given back. The payment and this refund both stay on record.",
+            amount = "%d.%02d".format(left.value / 100, left.value % 100), onDismiss = { refunding = null }) { amount, reason ->
+            onRefund(p.sale.id, amount!!, reason); refunding = null
+        }
+    }
+}
+
+private fun PaymentInfo.statusText() = when {
+    voided -> "Voided"
+    refunded >= sale.amount -> "Refunded in full"
+    refunded > Centavos.ZERO -> "Refunded $refunded"
+    unused -> "Paid, not used yet — resume at the booth or void"
+    session == SessionState.COMPLETED -> "Used — strip printed"
+    else -> "Used — session ${session?.name?.lowercase()}"
+}
+
+@Composable
+private fun ReasonDialog(title: String, body: String, amount: String?, onDismiss: () -> Unit, onConfirm: (amount: String?, reason: String) -> Unit) {
+    var reason by remember { mutableStateOf("") }
+    var value by remember { mutableStateOf(amount ?: "") }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(body)
+                if (amount != null) OutlinedTextField(value, { value = it }, label = { Text("Amount ₱") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                OutlinedTextField(reason, { reason = it }, label = { Text("Reason (required)") }, singleLine = true)
+            }
+        },
+        confirmButton = { Button({ onConfirm(amount?.let { value }, reason) }, enabled = reason.isNotBlank()) { Text("Confirm") } },
+        dismissButton = { TextButton(onDismiss) { Text("Keep it") } })
+}

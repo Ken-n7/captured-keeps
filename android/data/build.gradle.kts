@@ -19,6 +19,10 @@ dependencies {
     api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     ksp("androidx.room:room-compiler:2.8.3")
     testImplementation(kotlin("test"))
+    testImplementation("androidx.room:room-testing:2.8.3")
 }
 
-tasks.test { useJUnitPlatform() }
+tasks.test {
+    useJUnitPlatform()
+    systemProperty("schemaDir", file("schemas").path)
+}

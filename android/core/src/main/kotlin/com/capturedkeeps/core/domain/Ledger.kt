@@ -4,7 +4,8 @@ import java.time.Instant
 
 enum class Role { OWNER, ATTENDANT }
 
-data class Staff(val id: String = newId(), val name: String, val role: Role) {
+/** [active] false = left the team: can't log in or confirm payments, but stays in past records. */
+data class Staff(val id: String = newId(), val name: String, val role: Role, val active: Boolean = true) {
     init {
         rule(name.isNotBlank()) { "Staff name is required" }
     }

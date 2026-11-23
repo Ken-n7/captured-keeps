@@ -1,5 +1,6 @@
 package com.capturedkeeps.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -18,6 +19,7 @@ data class StaffRow(
     val pinHash: String? = null,
     /** Owners only: needed for owner tools. */
     val passwordHash: String? = null,
+    @ColumnInfo(defaultValue = "1") val active: Boolean = true,
 )
 
 @Entity(tableName = "events")
@@ -120,7 +122,7 @@ data class AuditRow(
 private fun Instant.ms() = toEpochMilli()
 private fun Long.instant() = Instant.ofEpochMilli(this)
 
-fun StaffRow.domain() = Staff(id, name, Role.valueOf(role))
+fun StaffRow.domain() = Staff(id, name, Role.valueOf(role), active)
 
 fun Event.row() = EventRow(id, name, type.name, status.name, venue, startDate?.toString(), endDate?.toString(),
     layoutIds.joinToString("\n"), idleMedia, welcomeText, receiptFooter, hidden)

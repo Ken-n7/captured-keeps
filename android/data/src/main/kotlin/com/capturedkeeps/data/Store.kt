@@ -16,19 +16,23 @@ class Store(private val db: CkDatabase) {
     suspend fun saveStaff(staff: Staff, pin: String? = null, password: String? = null) {
         if (password != null && staff.role != Role.OWNER) throw RuleBroken("Only the owner has a password")
         val old = dao.staffRow(staff.id)
+        if (old != null && old.active && !staff.active) {
+            if (staff.role == Role.OWNER && dao.staff().none { it.id != staff.id && it.role == Role.OWNER.name && it.active && it.passwordHash != null })
+                throw RuleBroken("Can't disable the only owner")
+        }
         dao.saveStaff(StaffRow(staff.id, staff.name, staff.role.name,
-            pin?.let(Pin::hash) ?: old?.pinHash, password?.let(Pin::hashPassword) ?: old?.passwordHash))
+            pin?.let(Pin::hash) ?: old?.pinHash, password?.let(Pin::hashPassword) ?: old?.passwordHash, staff.active))
     }
     suspend fun staff() = dao.staff().map { it.domain() }
 
     /** First run: no owner can log in yet. */
-    suspend fun needsSetup() = dao.staff().none { it.role == Role.OWNER.name && it.passwordHash != null }
+    suspend fun needsSetup() = dao.staff().none { it.role == Role.OWNER.name && it.passwordHash != null && it.active }
 
     // ponytail: checks every staff hash (~20 ms each); fine for a handful of staff.
     suspend fun staffByPin(pin: String): Staff? =
-        dao.staff().firstOrNull { it.pinHash != null && Pin.matches(pin, it.pinHash) }?.domain()
+        dao.staff().firstOrNull { it.active && it.pinHash != null && Pin.matches(pin, it.pinHash) }?.domain()
     suspend fun ownerByPassword(password: String): Staff? =
-        dao.staff().firstOrNull { it.passwordHash != null && Pin.matches(password, it.passwordHash) }?.domain()
+        dao.staff().firstOrNull { it.active && it.passwordHash != null && Pin.matches(password, it.passwordHash) }?.domain()
 
     suspend fun liveEvent() = events().firstOrNull { it.status == EventStatus.LIVE }
 
@@ -62,6 +66,27 @@ class Store(private val db: CkDatabase) {
 
     // ponytail: loads the whole ledger each time; fine for thousands of sales, query per event if it grows.
     suspend fun ledger() = Ledger(dao.ledger().map { it.domain() })
+
+    /** Cancel a payment whose session never got past the start (e.g. customer left after a crash). */
+    suspend fun void(saleId: String, by: Staff, reason: String, at: Instant) = tx {
+        dao.appendLedger(ledger().void(saleId, by, reason, sessionsForSale(saleId), at).row())
+    }
+
+    /** Owner only (the screen also requires the owner password login). */
+    suspend fun refund(saleId: String, amount: Centavos, by: Staff, reason: String, at: Instant) = tx {
+        dao.appendLedger(ledger().refund(saleId, amount, by, reason, at).row())
+    }
+
+    /** One line per sale of an event: what happened to the money and the session it paid for. */
+    suspend fun payments(eventId: String): List<PaymentInfo> {
+        val ledger = ledger().forEvent(eventId)
+        return ledger.sales.sortedByDescending { it.at }.map { sale ->
+            val sessions = sessionsForSale(sale.id)
+            PaymentInfo(sale, ledger.isVoided(sale.id), ledger.refunded(sale.id),
+                sessions.maxByOrNull { it.startedAt }?.state,
+                runCatching { ledger.authorize(sale.id, sessions) }.isSuccess)
+        }
+    }
 
     /** Sale, void or refund — created by [Ledger.sale]/[Ledger.void]/[Ledger.refund]. Never edited afterwards. */
     suspend fun append(entry: LedgerEntry) = dao.appendLedger(entry.row())
@@ -123,3 +148,13 @@ class Store(private val db: CkDatabase) {
         r
     }
 }
+
+data class PaymentInfo(
+    val sale: LedgerEntry.Sale,
+    val voided: Boolean,
+    val refunded: Centavos,
+    /** Latest session this payment unlocked; null = never used. */
+    val session: SessionState?,
+    /** Paid but no session is using it — can be resumed at the booth or voided. */
+    val unused: Boolean,
+)

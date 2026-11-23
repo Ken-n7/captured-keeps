@@ -276,6 +276,10 @@ Plan:
 6. ✅ Owner/admin on the tablet: first-run owner setup, staff login (owner password / attendant PIN, shared lockout),
    totals + cash held + CSV export, "Did it print?" checks, events (create/edit/packages/layouts/go live/pause/finish/archive),
    staff + PINs, print tuning, screen pinning.
+   - Payments page (from Totals): every sale with its status; void (never-used payments, reason required) and refund
+     (owner password login only, partial allowed, reason required). Both are new ledger entries — nothing is edited.
+   - Staff who leave are disabled, not deleted. The last owner can't be disabled.
+   - **Database migrations are now in place (v2).** Every schema change from here on must add a migration and a migration test.
 5. Admin: event setup, attendant PIN, totals, CSV export.
 6. **When hardware arrives:** Bluetooth/USB printer output, real-camera tuning, pilot test.
 7. Cloud backup → admin web app → everything else.
