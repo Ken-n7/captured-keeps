@@ -290,6 +290,24 @@ Plan:
    watchdog for a frozen printer, reconnect on next job, calibration knobs (width, band height, feed, cut, chunk size, pause),
    test page, payment acknowledgment slip (text mode), "print later" so a broken printer never blocks the booth.
    Needs the printer to verify (DEVICE_TESTING C1–C12). Not automatic: re-printing queued jobs on reconnect (staff retry instead).
+10. ✅ Release build: signed, R8-shrunk, 64-bit ARM only (3.4 MB vs 15 MB debug), version 0.9.0 (pilot).
+    Debug installs as a separate app "Captured Keeps (debug)" (`com.capturedkeeps.app.debug`) so testing never touches real data.
+
+### Release build — how to
+
+```
+cd android
+./gradlew :app:assembleRelease        # → app/build/outputs/apk/release/app-release.apk
+adb install -r app/build/outputs/apk/release/app-release.apk   # -r keeps the tablet's data
+```
+
+- **Signing key: `~/.captured-keeps/release.jks` + `signing.properties` (password inside). Not in git, on purpose.**
+  **Back both files up somewhere safe (USB drive + cloud).** Losing them means the next version can't install over
+  the current one: you'd have to uninstall, which deletes every event, sale and photo on the tablet.
+- Bump `versionCode` (and `versionName`) in `android/app/build.gradle.kts` for every release you install.
+- Every database change needs a migration + migration test (already enforced by `MigrationTest`).
+- Known limitation: photo/strip/video paths are stored as full paths; fine for normal updates, but moving data
+  between app IDs needs a path rewrite (done once on 2026-11-23 for the test phone).
 5. Admin: event setup, attendant PIN, totals, CSV export.
 6. **When hardware arrives:** Bluetooth/USB printer output, real-camera tuning, pilot test.
 7. Cloud backup → admin web app → everything else.

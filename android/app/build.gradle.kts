@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -14,14 +16,43 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "0.9.0" // pilot
+        // Galaxy Tab A11 and current phones are 64-bit ARM; dropping other CPU types keeps the APK small.
+        ndk { abiFilters += "arm64-v8a" }
+    }
+
+    // The release key lives outside the repo (~/.captured-keeps). Without it, release builds come out unsigned.
+    val signing = File(System.getProperty("user.home"), ".captured-keeps/signing.properties")
+        .takeIf { it.exists() }?.let { f -> Properties().apply { f.inputStream().use(::load) } }
+    signingConfigs {
+        if (signing != null) create("release") {
+            storeFile = file(signing.getProperty("storeFile"))
+            storePassword = signing.getProperty("storePassword")
+            keyAlias = signing.getProperty("keyAlias")
+            keyPassword = signing.getProperty("keyPassword")
+        }
+    }
+
+    buildTypes {
+        debug {
+            // Debug and release install side by side; debug is "Captured Keeps (debug)".
+            applicationIdSuffix = ".debug"
+            resValue("string", "app_name", "Captured Keeps (debug)")
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release")
+            resValue("string", "app_name", "Captured Keeps")
+        }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; resValues = true }
 }
 
 kotlin { jvmToolchain(17) }

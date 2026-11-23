@@ -166,3 +166,13 @@
 - Found while designing the failure path: a broken printer would leave a paid customer's screen stuck (staff can only open their menu from idle) → added "Staff: print it later from Check prints".
 - On the phone: virtual test page + status OK; Bluetooth (off on the phone) → clear "Bluetooth is off"; paid session print failed → print later → owner switched to virtual → Check prints → Print again → session completed, job done on attempt 2; slip printed (virtual).
 - Tests: 75 passing (core 32, data 24, app 22).
+
+## 2026-11-23 — Release build (pre-printer list, step 5)
+
+- Committed printer code as `b7ae4fc`.
+- Release signing key created in `~/.captured-keeps/` (outside the repo, mode 600); Gradle reads it if present, otherwise release is unsigned.
+- Release: R8 minify + resource shrinking, arm64-v8a only → 3.4 MB (debug was 15 MB). versionName 0.9.0.
+- Debug builds now install as `com.capturedkeeps.app.debug` ("Captured Keeps (debug)") alongside the release app.
+- On the phone: backed up the old debug app's data, uninstalled it, installed release + debug, restored the test data into the debug app (rewrote stored file paths for the new app ID).
+  Release build: full flow (setup → event → go live → paid session with camera → print → totals → layout editor → printer test page), no crashes. Release app data then cleared so it starts fresh.
+- Tests: 76 passing.
