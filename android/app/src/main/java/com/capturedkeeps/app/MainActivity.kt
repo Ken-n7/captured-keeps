@@ -56,8 +56,10 @@ class MainActivity : ComponentActivity() {
                         Nav.Loading -> {}
                         Nav.Setup -> SetupScreen(actions.error) { name, password, pin ->
                             actions.run {
-                                app.store.saveStaff(Staff(name = name, role = Role.OWNER), pin = pin, password = password)
-                                nav = Nav.Kiosk
+                                val owner = Staff(name = name, role = Role.OWNER)
+                                app.store.saveStaff(owner, pin = pin, password = password)
+                                // Straight into owner tools: the booth can't take guests until an event exists.
+                                nav = Nav.StaffMenu(com.capturedkeeps.data.Login(owner, ownerTools = true))
                             }
                         }
                         Nav.Kiosk -> KioskScreen(app.kiosk, app.store, app.scope, filesDir, print = app.printer::printStrip, onStaff = { nav = Nav.Login })

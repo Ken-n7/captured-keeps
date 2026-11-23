@@ -196,3 +196,4 @@
   - `presentation/build.py` rebuilds it from the recordings; outputs live in `presentation/out/` (git-ignored).
   - Recording setup: phone temporarily set to a 16:9 1280×720 dp display, landscape, Do Not Disturb; scrcpy recorded the screen (this phone blocks `screenrecord`). All phone settings and the debug app's test data were restored afterwards.
   - The idle video was attached to the demo event off-camera (this phone's file picker can't list files, DEVICE_TESTING A21).
+- First-run fix: after creating the owner account, the app opens owner tools directly (a new install was stuck at "No event is live" with staff access hidden). Staff access stays a hidden long-press by the owner's choice. Version 0.9.1 (code 2).

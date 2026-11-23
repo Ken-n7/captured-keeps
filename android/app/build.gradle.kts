@@ -15,8 +15,8 @@ android {
         applicationId = "com.capturedkeeps.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.9.0" // pilot
+        versionCode = 2
+        versionName = "0.9.1" // pilot
         // Galaxy Tab A11 and current phones are 64-bit ARM; dropping other CPU types keeps the APK small.
         ndk { abiFilters += "arm64-v8a" }
     }
