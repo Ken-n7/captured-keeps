@@ -145,3 +145,13 @@
   - Found + fixed: QR squeezed to a thin line on a short screen; welcome text too big over video; Back closed the app.
   - Video loops, date picker works, QR shows.
 - Tests: 68 passing (core 29, data 20, app 19).
+
+## 2026-11-23 — Strip layout editor + saved layouts/tuning (pre-printer list, step 3)
+
+- Committed idle video / dates / QR as `635c01d`.
+- `layouts` table (database v3, auto-migration 2→3 + migration test). `Store.layouts/saveLayout/deleteLayout/resetPreset`:
+  presets come from code unless the owner saved an edit; each changed save bumps the version; delete blocked while an unfinished event uses it.
+- Kiosk picks the event's layout from saved layouts, so sessions print (and record) the current version.
+- The virtual printer screen became the **layout editor**: every §5.1 setting except logo/overlay, print darkness saved per layout, preview rendered off the main thread, undo/reset/delete. Owner menu: "Strip layouts". Event editor lists saved layouts.
+- On the phone: upgrade v2→v3 kept data; Classic 3 edited to 2 photos → v2 → booth took 2 photos, strip No. 0003, session recorded v2 → reset to built-in (v3).
+- Tests: 70 passing (core 29, data 23, app 20 — incl. 2 migration tests).

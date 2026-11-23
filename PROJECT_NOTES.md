@@ -282,6 +282,10 @@ Plan:
    - **Database migrations are now in place (v2).** Every schema change from here on must add a migration and a migration test.
 7. ✅ Idle video (silent loop, Android's built-in player, branded fallback), event welcome text on idle, event dates
    (+ "Scheduled" label), payment QR image (one per business) on the payment screen. Picked files are copied into app storage.
+8. ✅ Strip layout editor (§5.1): shots, shape, margins, gap, header/subheader, event name/date/time/number toggles, footer,
+   print darkness per layout; dot-for-dot live preview. Saved in the database (v3); each save is a new version; built-in
+   presets can be edited and reset; own layouts can be added and deleted (not while an unfinished event uses them).
+   Not yet: logo image and overlay PNG (waiting for the real files).
 5. Admin: event setup, attendant PIN, totals, CSV export.
 6. **When hardware arrives:** Bluetooth/USB printer output, real-camera tuning, pilot test.
 7. Cloud backup → admin web app → everything else.

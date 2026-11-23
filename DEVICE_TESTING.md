@@ -18,7 +18,7 @@ Legend: ⏳ not built yet · 🔨 built, waiting for device · ✅ verified on d
 | A4 | Live camera preview, countdown, capture N shots | ✅ | Realme 3 Pro, Android 11, 2026-11-23. Preview, 3-2-1, flash, 3 shots saved |
 | A5 | Review / retake within package limit | 🔨 | Review screen ✅; retake not tried on device yet |
 | A6 | Strip drawn on device (Android Canvas) matches laptop sample | ✅ | Strip built from real camera photos on Realme 3 Pro, Android 11, 2026-11-23 |
-| A7 | Virtual printer screen shows the exact 576-dot image | 🔨 | 1 dot = 1 screen pixel; check sliders feel responsive (renders on main thread) |
+| A7 | Virtual printer screen shows the exact 576-dot image | ✅ | Now the layout editor: preview renders in the background, sliders smooth (Realme 3 Pro, 2026-11-23) |
 | A8 | Idle video loops; tap to start; missing/broken video → branded fallback screen | ✅ | Test MP4 plays silently, loops, welcome text over it; no video → branded screen (Realme 3 Pro, 2026-11-23). Broken-file fallback not tried on device |
 | A9 | Inactivity timeout returns to idle | 🔨 | 60 s on package/review screens, 120 s payment, 20 s done; paid sessions never time out |
 | A10 | Records saved to on-device database survive app kill + phone restart | ✅ | Survived force-stop (Realme 3 Pro, Android 11, 2026-11-23); phone reboot not tried yet |
@@ -35,6 +35,7 @@ Legend: ⏳ not built yet · 🔨 built, waiting for device · ✅ verified on d
 | A21 | Pick idle video and payment QR through the file browser | 🔨 | Browser opens (Realme 3 Pro, 2026-11-23), but this phone's file app wouldn't list the test file; display verified by placing files in app storage. **Owner: try picking your real QR screenshot and a video** |
 | A22 | Payment QR shows on the payment screen; Android Back never leaves the booth | ✅ | Realme 3 Pro, 2026-11-23 |
 | A23 | Event start/end date picker | ✅ | Realme 3 Pro, 2026-11-23 |
+| A24 | Edit a layout → saved as new version → next session uses it and records the version; reset to built-in | ✅ | Classic 3 → 2 photos (v2) → session printed 2 photos, recorded v2 → reset (v3). DB upgrade v2→v3 kept all data (Realme 3 Pro, 2026-11-23) |
 
 ## B. Galaxy Tab A11 (when it arrives)
 
@@ -55,7 +56,7 @@ Legend: ⏳ not built yet · 🔨 built, waiting for device · ✅ verified on d
 | C2 | Bluetooth: pair, connect, print a strip | ⏳ | |
 | C3 | USB: connect, permission prompt, print a strip | ⏳ | |
 | C4 | Band height: full strip prints with no garbled/skipped lines | 🔨 | Knob in `EscPos.raster(bandHeight)`, default 128 |
-| C5 | Print tuning on real paper: brightness, contrast, gamma, Floyd–Steinberg vs Atkinson | 🔨 | Laptop preview is lighter than real thermal output |
+| C5 | Print tuning on real paper: brightness, contrast, gamma, Floyd–Steinberg vs Atkinson | 🔨 | Tune per layout in Staff → Strip layouts, then save. Screen preview is lighter than real thermal output |
 | C6 | Time per strip over Bluetooth vs USB | ⏳ | Expect ~5–10 s Bluetooth |
 | C7 | Paper out / cover open detected (`DLE EOT` status) or at least a failed job | ⏳ | Depends on what the printer reports |
 | C8 | Printer turned off mid-print → job failed → retry works, no double charge | ⏳ | |

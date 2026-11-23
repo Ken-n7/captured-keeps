@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.capturedkeeps.core.domain.*
+import com.capturedkeeps.core.print.*
 import java.time.Instant
 import java.time.LocalDate
 
@@ -174,3 +175,35 @@ fun LedgerRow.domain(): LedgerEntry = when (kind) {
 
 fun AuditEntry.row() = AuditRow(id, at.ms(), byStaffId, entity, entityId, field, oldValue, newValue)
 fun AuditRow.domain() = AuditEntry(id, at.instant(), byStaffId, entity, entityId, field, oldValue, newValue)
+
+/** Saved strip layouts: owner edits of a preset (same id) or the owner's own layouts. */
+@Entity(tableName = "layouts")
+data class LayoutRow(
+    @PrimaryKey val id: String,
+    val name: String,
+    val version: Int,
+    val shots: Int,
+    val shape: String,
+    val showHeader: Boolean,
+    val headerText: String,
+    val subheaderText: String,
+    val showEventName: Boolean,
+    val showDate: Boolean,
+    val showTime: Boolean,
+    val showNumber: Boolean,
+    val footerText: String,
+    val margin: Int,
+    val gap: Int,
+    val autoLevels: Boolean,
+    val brightness: Int,
+    val contrast: Int,
+    val gamma: Double,
+    val dither: String,
+)
+
+fun StripLayout.row() = LayoutRow(id, name, version, shots, shape.name, showHeader, headerText, subheaderText, showEventName,
+    showDate, showTime, showNumber, footerText, margin, gap, tuning.autoLevels, tuning.brightness, tuning.contrast, tuning.gamma, tuning.dither.name)
+
+fun LayoutRow.domain() = StripLayout(id, name, version, shots, PhotoShape.valueOf(shape), showHeader, headerText, subheaderText,
+    showEventName, showDate, showTime, showNumber, footerText, margin, gap,
+    PrintTuning(autoLevels, brightness, contrast, gamma, DitherStyle.valueOf(dither)))

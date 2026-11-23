@@ -102,7 +102,8 @@ class KioskFlow(
     private suspend fun checkPin(pin: String) = gate.check { store.staffByPin(pin) }
 
     private suspend fun begin(event: Event, pkg: SessionPackage, sale: LedgerEntry.Sale?, isNew: Boolean): KioskState {
-        val layout = event.layoutIds.firstNotNullOfOrNull { id -> StripLayout.PRESETS.find { it.id == id } }
+        val all = store.layouts()
+        val layout = event.layoutIds.firstNotNullOfOrNull { id -> all.find { it.id == id } }
             ?: throw RuleBroken("No strip layout is enabled. Please call staff.")
         val session = Session.start(event, pkg.id, layout, deviceId, now(), sale)
         store.startSession(session, sale.takeIf { isNew })

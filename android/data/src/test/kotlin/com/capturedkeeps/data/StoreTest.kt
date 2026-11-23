@@ -201,4 +201,26 @@ class StoreTest {
         assertEquals(Centavos.pesos(50), after[used.id]!!.refunded)
         assertEquals(Centavos.pesos(100), store.ledger().forEvent(event.id).summary().net)
     }
+
+    @Test fun `layouts save as new versions, presets can be reset, used ones can't be deleted`() = test {
+        assertEquals(StripLayout.PRESETS, store.layouts())
+        val darker = store.saveLayout(layout.copy(tuning = layout.tuning.copy(brightness = -20)))
+        assertEquals(2, darker.version)
+        assertEquals(darker, store.layouts().first())
+        assertEquals(darker, store.saveLayout(darker)) // unchanged → same version
+
+        val mine = store.saveLayout(StripLayout(id = "mine", name = "Wedding 2", shots = 2, footerText = "Maria & Jose"))
+        assertEquals(1, mine.version)
+        assertEquals(listOf("classic-3", "square-4", "single-portrait", "mine"), store.layouts().map { it.id })
+
+        store.saveEvent(event.copy(layoutIds = listOf("mine")))
+        assertFailsWith<RuleBroken> { store.deleteLayout("mine") }
+        store.saveEvent(event.copy(layoutIds = listOf(layout.id)))
+        store.deleteLayout("mine")
+        assertEquals(3, store.layouts().size)
+
+        val reset = store.resetPreset(layout.id)
+        assertEquals(3, reset.version)
+        assertEquals(layout.tuning, reset.tuning)
+    }
 }

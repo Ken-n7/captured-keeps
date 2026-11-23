@@ -143,4 +143,13 @@ class KioskTest {
         other.start(); other.choose(pkg.id)
         assertTrue(assertIs<KioskState.Payment>(other.state.value).unused.isEmpty()) // now in use
     }
+
+    @Test fun `sessions use the saved layout and record its version`() = test {
+        val edited = store.saveLayout(StripLayout.CLASSIC_3.copy(shots = 2))
+        store.saveEvent(freeEvent)
+        kiosk.start(); kiosk.choose("free"); shoot(2)
+        val review = state<KioskState.Review>()
+        assertEquals(edited, review.layout)
+        assertEquals(2, review.session.layoutVersion)
+    }
 }

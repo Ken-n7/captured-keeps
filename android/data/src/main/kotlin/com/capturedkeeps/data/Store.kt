@@ -3,6 +3,7 @@ package com.capturedkeeps.data
 import androidx.room.immediateTransaction
 import androidx.room.useWriterConnection
 import com.capturedkeeps.core.domain.*
+import com.capturedkeeps.core.print.StripLayout
 import java.time.Instant
 
 /** The app's only way to read/write records. Domain rules run first, then rows are saved. */
@@ -60,6 +61,37 @@ class Store(private val db: CkDatabase) {
         val (old, new) = if (to == null) "false" to "true" else e.status.label to to.label
         dao.appendAudit(listOf(AuditEntry(at = at, byStaffId = by.id, entity = "event", entityId = id, field = field, oldValue = old, newValue = new).row()))
         moved
+    }
+
+    /** Presets (with the owner's saved edits) first, then the owner's own layouts. */
+    suspend fun layouts(): List<StripLayout> {
+        val saved = dao.layouts().map { it.domain() }.associateBy { it.id }
+        return StripLayout.PRESETS.map { saved[it.id] ?: it } + saved.values.filter { s -> StripLayout.PRESETS.none { it.id == s.id } }.sortedBy { it.name }
+    }
+
+    /** Saves an edit as a new version, so sessions can tell which version they printed with. */
+    suspend fun saveLayout(layout: StripLayout): StripLayout = tx {
+        val current = layouts().find { it.id == layout.id }
+        val saved = when {
+            current == null -> layout.copy(version = 1)
+            current == layout.copy(version = current.version) -> current // nothing changed
+            else -> layout.copy(version = current.version + 1)
+        }
+        dao.saveLayout(saved.row())
+        saved
+    }
+
+    /** Own layouts only, and only when no unfinished event uses them. Presets can be reset instead. */
+    suspend fun deleteLayout(id: String) = tx {
+        val inUse = events().filter { !it.status.isFinished && id in it.layoutIds }
+        if (inUse.isNotEmpty()) throw RuleBroken("Used by ${inUse.joinToString { it.name }} — remove it from the event first")
+        dao.deleteLayout(id)
+    }
+
+    /** Back to the built-in preset (a new version, so it isn't confused with the edited one). */
+    suspend fun resetPreset(id: String): StripLayout {
+        val preset = StripLayout.PRESETS.find { it.id == id } ?: throw RuleBroken("Not a built-in layout")
+        return saveLayout(preset)
     }
 
     suspend fun audit(entityId: String) = dao.audit(entityId).map { it.domain() }

@@ -59,7 +59,8 @@ private sealed interface StaffPage {
     data class EditEvent(val event: Event?) : StaffPage
     data object StaffList : StaffPage
     data class EditStaff(val staff: Staff?) : StaffPage
-    data object Tuning : StaffPage
+    data object Layouts : StaffPage
+    data class EditLayout(val layout: StripLayout, val isNew: Boolean) : StaffPage
     data object PaymentQr : StaffPage
 }
 
@@ -141,6 +142,7 @@ fun StaffArea(store: Store, login: Login, scope: CoroutineScope, onExit: () -> U
                 onMove = { e, to -> actions.run { store.moveEvent(e.id, to, login.staff, Instant.now()); refresh++ } })
         }
         is StaffPage.EditEvent -> EventEditor(p.event, actions.error, onBack = { actions.error = null; page = StaffPage.Events },
+            layouts = produceState(StripLayout.PRESETS) { value = store.layouts() }.value,
             pickVideo = { done ->
                 onVideo = done
                 videoPicker.launch(arrayOf("video/*"))
@@ -165,9 +167,18 @@ fun StaffArea(store: Store, login: Login, scope: CoroutineScope, onExit: () -> U
         StaffPage.PaymentQr -> PaymentQrPage(remember(qrVersion) { Media.image(Media.paymentQr(context)) }, actions.error, onBack = back,
             onChoose = { qrPicker.launch(arrayOf("image/*")) },
             onRemove = { Media.paymentQr(context).delete(); qrVersion++ })
-        StaffPage.Tuning -> Column {
-            TextButton(back, Modifier.padding(start = 16.dp, top = 8.dp)) { Text("‹ Back") }
-            VirtualPrinterScreen()
+        StaffPage.Layouts -> {
+            val layouts by produceState(emptyList<StripLayout>(), refresh) { value = store.layouts() }
+            LayoutsPage(layouts, onBack = back, onEdit = { page = StaffPage.EditLayout(it, isNew = false) },
+                onNew = { page = StaffPage.EditLayout(StripLayout.CLASSIC_3.copy(id = newId(), name = "My layout", version = 1), isNew = true) })
+        }
+        is StaffPage.EditLayout -> {
+            val preset = StripLayout.PRESETS.any { it.id == p.layout.id }
+            val done = { actions.error = null; refresh++; page = StaffPage.Layouts }
+            LayoutEditor(p.layout, actions.error, onBack = { actions.error = null; page = StaffPage.Layouts },
+                onSave = { l -> actions.run { store.saveLayout(l); done() } },
+                onReset = if (preset) ({ actions.run { store.resetPreset(p.layout.id); done() } }) else null,
+                onDelete = if (!preset && !p.isNew) ({ actions.run { store.deleteLayout(p.layout.id); done() } }) else null)
         }
     }
 }
@@ -260,7 +271,7 @@ private fun StaffMenu(login: Login, printsToCheck: Int, onOpen: (StaffPage) -> U
                 Tile("Events", "Set up, go live, finish") { onOpen(StaffPage.Events) }
                 Tile("Staff", "Names, PINs, password") { onOpen(StaffPage.StaffList) }
                 Tile("Payment QR", "Your wallet QR shown to customers") { onOpen(StaffPage.PaymentQr) }
-                Tile("Print tuning", "Preview strips and darkness") { onOpen(StaffPage.Tuning) }
+                Tile("Strip layouts", "Design strips, print darkness") { onOpen(StaffPage.Layouts) }
                 Tile("Lock booth", "Pin the app so customers can't leave it") { onPin(true) }
                 Tile("Unlock booth", "Unpin the app") { onPin(false) }
             }
@@ -408,14 +419,16 @@ private class PackageDraft(val id: String, name: String, price: String, copies: 
 /** New event ([event] null) or edit. Edits only reach new sessions; running ones keep their snapshot. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun EventEditor(event: Event?, error: String?, onBack: () -> Unit, onSave: (Event) -> Unit, pickVideo: ((String) -> Unit) -> Unit = {}) {
+fun EventEditor(event: Event?, error: String?, onBack: () -> Unit, onSave: (Event) -> Unit, pickVideo: ((String) -> Unit) -> Unit = {},
+                layouts: List<StripLayout> = StripLayout.PRESETS) {
     val e = event ?: Event(name = "New event", type = EventType.PAID, layoutIds = listOf(StripLayout.CLASSIC_3.id))
     var name by remember { mutableStateOf(if (event == null) "" else e.name) }
     var type by remember { mutableStateOf(e.type) }
     var venue by remember { mutableStateOf(e.venue) }
     var welcome by remember { mutableStateOf(e.welcomeText) }
     var footer by remember { mutableStateOf(e.receiptFooter) }
-    var layouts by remember { mutableStateOf(e.layoutIds.toSet()) }
+    val available = layouts
+    var chosen by remember { mutableStateOf(e.layoutIds.toSet()) }
     var start by remember { mutableStateOf(e.startDate) }
     var end by remember { mutableStateOf(e.endDate) }
     var video by remember { mutableStateOf(e.idleMedia) }
@@ -430,7 +443,7 @@ fun EventEditor(event: Event?, error: String?, onBack: () -> Unit, onSave: (Even
         Button({
             localError = try {
                 onSave(e.copy(name = name.trim(), type = type, venue = venue.trim(), welcomeText = welcome.trim(),
-                    receiptFooter = footer.trim(), startDate = start, endDate = end, idleMedia = video, layoutIds = StripLayout.PRESETS.map { it.id }.filter { it in layouts },
+                    receiptFooter = footer.trim(), startDate = start, endDate = end, idleMedia = video, layoutIds = available.map { it.id }.filter { it in chosen },
                     packages = packages.map { it.build() }))
                 null
             } catch (x: IllegalStateException) { x.message } catch (x: IllegalArgumentException) { x.message }
@@ -459,7 +472,7 @@ fun EventEditor(event: Event?, error: String?, onBack: () -> Unit, onSave: (Even
 
         Text("STRIP LAYOUTS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (l in StripLayout.PRESETS) FilterChip(l.id in layouts, { layouts = if (l.id in layouts) layouts - l.id else layouts + l.id }, { Text(l.name) })
+            for (l in available) FilterChip(l.id in chosen, { chosen = if (l.id in chosen) chosen - l.id else chosen + l.id }, { Text(l.name) })
         }
 
         Text("PACKAGES", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -624,4 +637,22 @@ fun PaymentQrPage(qr: ImageBitmap?, error: String?, onBack: () -> Unit, onChoose
             style = MaterialTheme.typography.bodyLarge)
         if (qr == null) Text("No QR set — the payment screen shows instructions only.", color = Brand.Warn, style = MaterialTheme.typography.bodyLarge)
         else Image(qr, "Payment QR", Modifier.height(360.dp).background(Color.White).padding(8.dp))
+    }
+
+@Composable
+fun LayoutsPage(layouts: List<StripLayout>, onBack: () -> Unit, onEdit: (StripLayout) -> Unit, onNew: () -> Unit) =
+    Page("Strip layouts", onBack, actions = { Button(onNew) { Text("New layout") } }) {
+        Text("Events choose from these. Edits only affect new strips; each save is a new version.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        for (l in layouts) Card(onClick = { onEdit(l) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Row(Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(l.name, style = MaterialTheme.typography.titleLarge)
+                    Text("${l.shots} ${if (l.shots == 1) "photo" else "photos"} · ${l.shape.name.lowercase()} · version ${l.version}" +
+                        if (StripLayout.PRESETS.any { it.id == l.id }) " · built-in" else "",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text("Edit ›", style = MaterialTheme.typography.labelLarge)
+            }
+        }
     }

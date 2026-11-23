@@ -45,16 +45,23 @@ interface CkDao {
     @Insert suspend fun appendLedger(row: LedgerRow)
     @Query("SELECT * FROM ledger ORDER BY at, rowid") suspend fun ledger(): List<LedgerRow>
 
+    @Upsert suspend fun saveLayout(row: LayoutRow)
+    @Query("SELECT * FROM layouts") suspend fun layouts(): List<LayoutRow>
+    @Query("DELETE FROM layouts WHERE id = :id") suspend fun deleteLayout(id: String)
+
     @Insert suspend fun appendAudit(rows: List<AuditRow>)
     @Query("SELECT * FROM audit WHERE entityId = :entityId ORDER BY at, rowid") suspend fun audit(entityId: String): List<AuditRow>
 }
 
 @Database(
     entities = [StaffRow::class, EventRow::class, PackageRow::class, SessionRow::class, PrintJobRow::class,
-        LedgerRow::class, AuditRow::class],
-    version = 2,
+        LedgerRow::class, AuditRow::class, LayoutRow::class],
+    version = 3,
     // Every schema change from here on gets a migration so tablets keep their records (schemas/ holds each version).
-    autoMigrations = [AutoMigration(from = 1, to = 2, spec = V1toV2::class)],
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2, spec = V1toV2::class), // staff.active
+        AutoMigration(from = 2, to = 3), // layouts table
+    ],
 )
 abstract class CkDatabase : RoomDatabase() {
     abstract fun dao(): CkDao

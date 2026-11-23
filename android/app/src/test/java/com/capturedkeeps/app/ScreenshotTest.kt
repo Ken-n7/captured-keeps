@@ -14,7 +14,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import com.capturedkeeps.app.ui.*
 import com.capturedkeeps.core.domain.*
 import com.capturedkeeps.app.ui.CapturedKeepsTheme
-import com.capturedkeeps.app.ui.VirtualPrinterScreen
 import com.capturedkeeps.core.print.PAPER_80MM_DOTS
 import com.capturedkeeps.core.print.SamplePhotos
 import com.capturedkeeps.core.print.StripInfo
@@ -32,12 +31,18 @@ import java.time.LocalDateTime
 class ScreenshotTest {
     @get:Rule val paparazzi = Paparazzi(deviceConfig = DeviceConfig.NEXUS_10) // 1280 × 800 dp landscape tablet
 
-    @Test fun virtualPrinterClassic() = screen(StripLayout.CLASSIC_3)
-    @Test fun virtualPrinterSquare() = screen(StripLayout.SQUARE_4)
-    @Test fun virtualPrinterPortrait() = screen(StripLayout.SINGLE_PORTRAIT)
+    @Test fun layoutClassic() = screen(StripLayout.CLASSIC_3)
+    @Test fun layoutSquare() = screen(StripLayout.SQUARE_4)
+    @Test fun layoutPortrait() = screen(StripLayout.SINGLE_PORTRAIT)
 
-    private fun screen(layout: StripLayout) =
-        paparazzi.snapshot { CapturedKeepsTheme { VirtualPrinterScreen(initialLayout = layout) } }
+    private fun screen(layout: StripLayout) = paparazzi.snapshot {
+        val info = StripInfo("Maria & Jose's Wedding", LocalDateTime.of(2026, 11, 23, 18, 42), 42)
+        CapturedKeepsTheme { LayoutEditor(layout, null, {}, {}, onReset = {}, initialPreview = renderPreview(layout, info, SamplePhotos.DEFAULT)) }
+    }
+
+    @Test fun layoutsList() = kiosk {
+        LayoutsPage(StripLayout.PRESETS + StripLayout(id = "w", name = "Wedding — 2 photos", version = 3, shots = 2), {}, {}, {})
+    }
 
     private val event = Event(name = "Maria & Jose's Wedding", type = EventType.PAID, status = EventStatus.LIVE,
         packages = listOf(SessionPackage(name = "Classic", price = Centavos.pesos(150)),

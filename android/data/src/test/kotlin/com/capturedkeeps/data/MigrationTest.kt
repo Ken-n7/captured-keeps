@@ -33,4 +33,18 @@ class MigrationTest {
         assertFailsWith<SQLiteException> { db.execSQL(insert.format("s2")) }
         db.close()
     }
+
+    @Test fun `2 to 3 adds layouts and keeps everything else`() {
+        val file = File.createTempFile("ckmig", ".db").also { it.delete(); it.deleteOnExit() }
+        val helper = MigrationTestHelper(Path(System.getProperty("schemaDir")), file.toPath(), BundledSQLiteDriver(), CkDatabase::class)
+        helper.createDatabase(2).apply {
+            execSQL("INSERT INTO staff (id, name, role, pinHash, passwordHash, active) VALUES ('o', 'Owner', 'OWNER', 'p', 'h', 1)")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(3)
+        db.prepare("SELECT (SELECT count(*) FROM staff), (SELECT count(*) FROM layouts)").use {
+            it.step(); assertEquals(1L to 0L, it.getLong(0) to it.getLong(1))
+        }
+        db.close()
+    }
 }
