@@ -155,3 +155,14 @@
 - The virtual printer screen became the **layout editor**: every §5.1 setting except logo/overlay, print darkness saved per layout, preview rendered off the main thread, undo/reset/delete. Owner menu: "Strip layouts". Event editor lists saved layouts.
 - On the phone: upgrade v2→v3 kept data; Classic 3 edited to 2 photos → v2 → booth took 2 photos, strip No. 0003, session recorded v2 → reset to built-in (v3).
 - Tests: 70 passing (core 29, data 23, app 20 — incl. 2 migration tests).
+
+## 2026-11-23 — Printer code before the printer arrives (pre-printer list, step 4)
+
+- Committed layout editor as `23b1ff9`.
+- `core`: `PrinterStatusQuery` (DLE EOT paper/cover status, rejects non-status bytes), `TextPrintout` (PC437 text mode, 48 columns, ₱ → "PHP"), `Printouts.acknowledgment` ("PAYMENT ACKNOWLEDGMENT — NOT AN OFFICIAL RECEIPT/INVOICE" twice) and `Printouts.testPage` (text, gray ramp, sample photo).
+- `data`: staff retry is now two-step (`retryPrint` → print → `printFinished`); `KioskFlow.printLater` so a failed print never blocks the booth.
+- `app`: `PrinterService` — virtual / Bluetooth SPP (secure then insecure socket) / USB (printer-class or bulk-out interface, permission prompt); status check before printing; watchdog closes a frozen connection; next job reconnects; one job at a time; settings + calibration knobs saved per device.
+  Kiosk, Check prints and a new Payments "Print slip" all print for real. Owner "Printer" page with device lists, knobs, Check status, Print test page.
+- Found while designing the failure path: a broken printer would leave a paid customer's screen stuck (staff can only open their menu from idle) → added "Staff: print it later from Check prints".
+- On the phone: virtual test page + status OK; Bluetooth (off on the phone) → clear "Bluetooth is off"; paid session print failed → print later → owner switched to virtual → Check prints → Print again → session completed, job done on attempt 2; slip printed (virtual).
+- Tests: 75 passing (core 32, data 24, app 22).

@@ -2,6 +2,7 @@ package com.capturedkeeps.app
 
 import android.app.Application
 import androidx.room.Room
+import com.capturedkeeps.app.printer.PrinterService
 import com.capturedkeeps.data.CkDatabase
 import com.capturedkeeps.data.Gate
 import com.capturedkeeps.data.KioskFlow
@@ -23,6 +24,8 @@ class App : Application() {
 
     /** One lockout for payment PINs and staff login, so guesses add up across both. */
     val gate = Gate()
+
+    val printer by lazy { PrinterService(this) }
 
     val kiosk by lazy { KioskFlow(store, deviceId, freeBytes = { filesDir.usableSpace }, gate = gate) }
 

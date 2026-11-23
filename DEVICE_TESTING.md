@@ -36,6 +36,7 @@ Legend: ⏳ not built yet · 🔨 built, waiting for device · ✅ verified on d
 | A22 | Payment QR shows on the payment screen; Android Back never leaves the booth | ✅ | Realme 3 Pro, 2026-11-23 |
 | A23 | Event start/end date picker | ✅ | Realme 3 Pro, 2026-11-23 |
 | A24 | Edit a layout → saved as new version → next session uses it and records the version; reset to built-in | ✅ | Classic 3 → 2 photos (v2) → session printed 2 photos, recorded v2 → reset (v3). DB upgrade v2→v3 kept all data (Realme 3 Pro, 2026-11-23) |
+| A25 | Print failure path: error on customer screen → "print later" → staff switch printer → Check prints → Print again | ✅ | Bluetooth off → "Printer problem: Bluetooth is off" → recovered, session completed, job done on attempt 2 (Realme 3 Pro, 2026-11-23) |
 
 ## B. Galaxy Tab A11 (when it arrives)
 
@@ -52,18 +53,18 @@ Legend: ⏳ not built yet · 🔨 built, waiting for device · ✅ verified on d
 
 | # | Test | Status | Notes |
 |---|---|---|---|
-| C1 | Confirm printer specs: 576 dots wide? ESC/POS `GS v 0` raster supported? Has cutter? | ⏳ | Print the self-test page (hold FEED while powering on) |
-| C2 | Bluetooth: pair, connect, print a strip | ⏳ | |
-| C3 | USB: connect, permission prompt, print a strip | ⏳ | |
-| C4 | Band height: full strip prints with no garbled/skipped lines | 🔨 | Knob in `EscPos.raster(bandHeight)`, default 128 |
+| C1 | Confirm printer specs: 576 dots wide? ESC/POS `GS v 0` raster supported? Has cutter? | 🔨 | Staff → Printer → "Print test page" prints text, a gray ramp and a sample photo; set width 576/512/384 to match |
+| C2 | Bluetooth: pair, connect, print a strip | 🔨 | Pair in Android settings, choose it in Staff → Printer. Tries secure then insecure Bluetooth socket |
+| C3 | USB: connect, permission prompt, print a strip | 🔨 | Plug in, choose it, "Allow access". Finds printer-class or any bulk-out USB interface |
+| C4 | Band height: full strip prints with no garbled/skipped lines | 🔨 | Staff → Printer → Band height (default 128) |
 | C5 | Print tuning on real paper: brightness, contrast, gamma, Floyd–Steinberg vs Atkinson | 🔨 | Tune per layout in Staff → Strip layouts, then save. Screen preview is lighter than real thermal output |
-| C6 | Time per strip over Bluetooth vs USB | ⏳ | Expect ~5–10 s Bluetooth |
-| C7 | Paper out / cover open detected (`DLE EOT` status) or at least a failed job | ⏳ | Depends on what the printer reports |
-| C8 | Printer turned off mid-print → job failed → retry works, no double charge | ⏳ | |
-| C9 | Printer reconnects → queued jobs print automatically | ⏳ | |
-| C10 | Cut command works (or tear bar position right if no cutter) | 🔨 | `feedLines` + `cut` options |
+| C6 | Time per strip over Bluetooth vs USB | 🔨 | Knobs if long strips cut off: Pause between chunks, Chunk size |
+| C7 | Paper out / cover open detected (`DLE EOT` status) or at least a failed job | 🔨 | Checks DLE EOT before each print; cover open / out of paper shown to staff. Printers that don't answer still print |
+| C8 | Printer turned off mid-print → job failed → retry works, no double charge | 🔨 | Failure → customer screen "Try printing again" / "print later" → staff Check prints. Paths verified on phone with Bluetooth off |
+| C9 | Printer reconnects → queued jobs print automatically | ⏳ | Not automatic: staff retry from Check prints (the next job reconnects by itself) |
+| C10 | Cut command works (or tear bar position right if no cutter) | 🔨 | Staff → Printer → Feed after print + Cut on/off |
 | C11 | Long-life thermal paper vs standard: darkness, fading check after weeks | ⏳ | Supports "Lifelong keeps" promise |
-| C12 | Payment acknowledgment slip prints "NOT AN OFFICIAL RECEIPT/INVOICE" | ⏳ | |
+| C12 | Payment acknowledgment slip prints "NOT AN OFFICIAL RECEIPT/INVOICE" | 🔨 | Payments → "Print slip" (text mode, PHP instead of ₱, PC437 for ñ) |
 
 ## D. Pilot event (all hardware together)
 

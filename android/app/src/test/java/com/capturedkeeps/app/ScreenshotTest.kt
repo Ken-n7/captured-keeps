@@ -99,6 +99,11 @@ class ScreenshotTest {
         ), ownerTools = true, error = null, onBack = {}, onVoid = { _, _ -> }, onRefund = { _, _, _ -> })
     }
     @Test fun staffPaymentQrEmpty() = kiosk { PaymentQrPage(null, null, {}, {}, {}) }
+    @Test fun staffPrinter() = kiosk {
+        PrinterPage(com.capturedkeeps.app.printer.PrinterConfig(com.capturedkeeps.app.printer.PrinterKind.BLUETOOTH, "00:11:22:33:44:55", "POS-80"),
+            listOf(PrinterChoice("00:11:22:33:44:55", "POS-80", "00:11:22:33:44:55"), PrinterChoice("AA:BB:CC:DD:EE:FF", "Earbuds", "AA:BB:CC:DD:EE:FF")),
+            emptyList(), true, "Printer is out of paper", null, {}, {}, {}, {}, {}, {}, {}, {})
+    }
     @Test fun staffEventEditor() = kiosk { EventEditor(event.copy(startDate = java.time.LocalDate.of(2026, 12, 12), idleMedia = "/x.mp4"), null, {}, {}) }
 
     /** Full-size strips drawn with Android Canvas → app/build/samples, to compare with core/build/samples. */

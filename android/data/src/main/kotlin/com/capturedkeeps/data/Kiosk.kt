@@ -167,6 +167,11 @@ class KioskFlow(
         s.copy(job = again)
     }
 
+    /** Printer can't print now: the booth moves on and the failed print waits in staff "Check prints". */
+    suspend fun printLater() = act { s ->
+        if (s is KioskState.Printing && s.job.state == PrintState.FAILED) KioskState.Idle else null
+    }
+
     /** Customer backed out of a free session. Paid sessions are only cancelled by staff. */
     suspend fun cancel() = act { s ->
         when (s) {

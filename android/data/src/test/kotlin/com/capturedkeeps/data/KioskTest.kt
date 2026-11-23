@@ -152,4 +152,19 @@ class KioskTest {
         assertEquals(edited, review.layout)
         assertEquals(2, review.session.layoutVersion)
     }
+
+    @Test fun `failed print can be left for staff so the booth keeps going`() = test {
+        store.saveEvent(freeEvent)
+        kiosk.start(); kiosk.choose("free"); shoot(3)
+        kiosk.accept("/strips/1.png")
+        kiosk.printLater() // only once it has failed
+        state<KioskState.Printing>()
+        kiosk.printResult("Printer is out of paper")
+        kiosk.printLater()
+        state<KioskState.Idle>()
+        val job = store.failedPrints().single()
+        assertEquals(SessionState.PRINTING, store.session(job.sessionId)!!.state)
+        store.retryPrint(job.id); store.printFinished(job.id, null, clock)
+        assertEquals(SessionState.COMPLETED, store.session(job.sessionId)!!.state)
+    }
 }

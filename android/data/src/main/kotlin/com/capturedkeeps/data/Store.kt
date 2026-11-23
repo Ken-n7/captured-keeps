@@ -155,14 +155,17 @@ class Store(private val db: CkDatabase) {
     /** Failed prints still waiting for a retry. */
     suspend fun failedPrints() = dao.openPrintJobs().map { it.domain() }.filter { it.state == PrintState.FAILED }
 
-    /**
-     * Retry a failed print. ponytail: virtual printer — marks it printed at once;
-     * the real printer step sends it and reports back instead.
-     */
-    suspend fun retryPrint(jobId: String, at: Instant) = tx {
+    /** Staff retry a failed print: marks it sending and returns it for the printer; report back with [printFinished]. */
+    suspend fun retryPrint(jobId: String): PrintJob = tx {
         val job = dao.printJob(jobId)?.domain() ?: throw RuleBroken("Print not found")
-        dao.savePrintJob(job.retry().send().done().row())
-        completeSession(job.sessionId, at)
+        job.retry().send().also { dao.savePrintJob(it.row()) }
+    }
+
+    /** The printer finished a staff retry: [error] null = printed (session completes). */
+    suspend fun printFinished(jobId: String, error: String?, at: Instant) = tx {
+        val job = dao.printJob(jobId)?.domain() ?: throw RuleBroken("Print not found")
+        dao.savePrintJob((if (error == null) job.done() else job.failed(error)).row())
+        if (error == null) completeSession(job.sessionId, at)
     }
 
     private suspend fun completeSession(sessionId: String, at: Instant) {

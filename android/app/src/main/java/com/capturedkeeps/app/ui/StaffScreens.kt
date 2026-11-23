@@ -19,6 +19,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.asImageBitmap
 import com.capturedkeeps.app.media.Media
+import com.capturedkeeps.app.printer.PrinterService
+import com.capturedkeeps.app.printer.usbDevices
+import com.capturedkeeps.core.print.Printouts
+import android.Manifest
+import android.app.PendingIntent
+import android.content.Intent
+import android.hardware.usb.UsbManager
+import android.provider.Settings
 import java.time.LocalDate
 import java.time.ZoneOffset
 import androidx.compose.ui.platform.LocalContext
@@ -62,13 +70,14 @@ private sealed interface StaffPage {
     data object Layouts : StaffPage
     data class EditLayout(val layout: StripLayout, val isNew: Boolean) : StaffPage
     data object PaymentQr : StaffPage
+    data object Printer : StaffPage
 }
 
 private val CLOCK = DateTimeFormatter.ofPattern("MMM d, HH:mm").withZone(ZoneId.systemDefault())
 
 /** Everything behind staff login. Owner tools need the owner password ([Login.ownerTools]). */
 @Composable
-fun StaffArea(store: Store, login: Login, scope: CoroutineScope, onExit: () -> Unit) {
+fun StaffArea(store: Store, printer: PrinterService, login: Login, scope: CoroutineScope, onExit: () -> Unit) {
     var page by remember { mutableStateOf<StaffPage>(StaffPage.Menu) }
     var refresh by remember { mutableIntStateOf(0) }
     val actions = remember { Actions(scope) }
@@ -124,7 +133,16 @@ fun StaffArea(store: Store, login: Login, scope: CoroutineScope, onExit: () -> U
         }
         is StaffPage.Payments -> {
             val rows by produceState(emptyList<PaymentInfo>(), p, refresh) { value = store.payments(p.event.id) }
+            val staffNames by produceState(emptyMap<String, String>()) { value = store.staff().associate { it.id to it.name } }
             PaymentsPage(p.event, rows, login.ownerTools, actions.error, onBack = { actions.error = null; page = StaffPage.Totals },
+                onSlip = { info ->
+                    actions.run {
+                        val c = printer.config
+                        val slip = Printouts.acknowledgment(info.sale, p.event.name, p.event.packages.find { it.id == info.sale.packageId }?.name ?: "Package",
+                            staffNames[info.sale.byStaffId] ?: "Staff", ZoneId.systemDefault(), feedLines = c.feedLines, cut = c.cut)
+                        printer.send(slip)?.let { throw IllegalStateException(it) }
+                    }
+                },
                 onVoid = { id, reason -> actions.run { store.void(id, login.staff, reason, Instant.now()); refresh++ } },
                 onRefund = { id, amount, reason -> actions.run { store.refund(id, Centavos.parse(amount), login.staff, reason, Instant.now()); refresh++ } })
         }
@@ -133,7 +151,14 @@ fun StaffArea(store: Store, login: Login, scope: CoroutineScope, onExit: () -> U
             val failed by produceState(emptyList<PrintJob>(), refresh) { value = store.failedPrints() }
             PrintsPage(unknown, failed, actions.error, onBack = back,
                 onAnswer = { job, printed -> actions.run { store.resolvePrint(job.id, printed, Instant.now()); refresh++ } },
-                onRetry = { job -> actions.run { store.retryPrint(job.id, Instant.now()); refresh++ } })
+                onRetry = { job ->
+                    actions.run {
+                        val sending = store.retryPrint(job.id)
+                        val problem = printer.printStrip(sending.imagePath, sending.copies)
+                        store.printFinished(job.id, problem, Instant.now()); refresh++
+                        problem?.let { throw IllegalStateException(it) }
+                    }
+                })
         }
         StaffPage.Events -> {
             val events by produceState(emptyList<Event>(), refresh) { value = store.events().filterNot { it.hidden } }
@@ -167,6 +192,46 @@ fun StaffArea(store: Store, login: Login, scope: CoroutineScope, onExit: () -> U
         StaffPage.PaymentQr -> PaymentQrPage(remember(qrVersion) { Media.image(Media.paymentQr(context)) }, actions.error, onBack = back,
             onChoose = { qrPicker.launch(arrayOf("image/*")) },
             onRemove = { Media.paymentQr(context).delete(); qrVersion++ })
+        StaffPage.Printer -> {
+            var cfg by remember { mutableStateOf(printer.config) }
+            var message by remember { mutableStateOf<String?>(null) }
+            var tick by remember { mutableIntStateOf(0) }
+            var btAllowed by remember { mutableStateOf(bluetoothAllowed(context)) }
+            val askBt = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { btAllowed = it; tick++ }
+            val bt = remember(btAllowed, cfg.kind, tick) { if (btAllowed) pairedPrinters(context) else emptyList() }
+            val usb = remember(cfg.kind, tick) {
+                val manager = context.getSystemService(UsbManager::class.java)
+                usbDevices(context).map { PrinterChoice(it.key, it.name, if (it.looksLikePrinter) "printer · ${it.key}" else "USB device · ${it.key}", !manager.hasPermission(it.device)) }
+            }
+            PrinterPage(cfg, bt, usb, btAllowed, message, actions.error, onBack = back,
+                onChange = { cfg = it; printer.config = it; message = null },
+                onAllowBluetooth = { askBt.launch(Manifest.permission.BLUETOOTH_CONNECT) },
+                onBluetoothSettings = { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },
+                onAllowUsb = { key ->
+                    usbDevices(context).find { it.key == key }?.let {
+                        context.getSystemService(UsbManager::class.java).requestPermission(it.device,
+                            PendingIntent.getBroadcast(context, 0, Intent("com.capturedkeeps.USB_PERMISSION").setPackage(context.packageName), PendingIntent.FLAG_MUTABLE))
+                    }
+                },
+                onRefresh = { tick++ },
+                onStatus = {
+                    message = "Checking…"
+                    actions.run {
+                        message = try {
+                            printer.status()?.let { it.problem ?: if (it.paperLow) "Ready — paper is running low" else "Ready" }
+                                ?: "Connected — this printer doesn't report paper status"
+                        } catch (e: java.io.IOException) { e.message }
+                    }
+                },
+                onTestPage = {
+                    message = "Printing test page…"
+                    actions.run {
+                        val c = printer.config
+                        val layout = store.layouts().first()
+                        message = printer.send(Printouts.testPage(c.dots, c.bandHeight, c.feedLines, c.cut, layout.tuning)) ?: "Test page sent"
+                    }
+                })
+        }
         StaffPage.Layouts -> {
             val layouts by produceState(emptyList<StripLayout>(), refresh) { value = store.layouts() }
             LayoutsPage(layouts, onBack = back, onEdit = { page = StaffPage.EditLayout(it, isNew = false) },
@@ -271,6 +336,7 @@ private fun StaffMenu(login: Login, printsToCheck: Int, onOpen: (StaffPage) -> U
                 Tile("Events", "Set up, go live, finish") { onOpen(StaffPage.Events) }
                 Tile("Staff", "Names, PINs, password") { onOpen(StaffPage.StaffList) }
                 Tile("Payment QR", "Your wallet QR shown to customers") { onOpen(StaffPage.PaymentQr) }
+                Tile("Printer", "Bluetooth / USB, test page") { onOpen(StaffPage.Printer) }
                 Tile("Strip layouts", "Design strips, print darkness") { onOpen(StaffPage.Layouts) }
                 Tile("Lock booth", "Pin the app so customers can't leave it") { onPin(true) }
                 Tile("Unlock booth", "Unpin the app") { onPin(false) }
@@ -542,7 +608,8 @@ private fun Field(label: String, value: String, secret: Boolean = false, digits:
 /** Every payment of an event. Void = cancel a payment that was never used; refund = give money back (owner password only). */
 @Composable
 fun PaymentsPage(event: Event, rows: List<PaymentInfo>, ownerTools: Boolean, error: String?, onBack: () -> Unit,
-                 onVoid: (saleId: String, reason: String) -> Unit, onRefund: (saleId: String, amount: String, reason: String) -> Unit) {
+                 onVoid: (saleId: String, reason: String) -> Unit, onRefund: (saleId: String, amount: String, reason: String) -> Unit,
+                 onSlip: (PaymentInfo) -> Unit = {}) {
     var voiding by remember { mutableStateOf<PaymentInfo?>(null) }
     var refunding by remember { mutableStateOf<PaymentInfo?>(null) }
     val names = event.packages.associate { it.id to it.name }
@@ -560,6 +627,7 @@ fun PaymentsPage(event: Event, rows: List<PaymentInfo>, ownerTools: Boolean, err
                         p.voided || p.refunded > Centavos.ZERO -> Brand.Error; p.unused -> Brand.Warn; else -> Brand.Ok
                     })
                 }
+                if (!p.voided) TextButton({ onSlip(p) }) { Text("Print slip") }
                 if (p.unused && !p.voided) OutlinedButton({ voiding = p }) { Text("Void") }
                 if (ownerTools && !p.voided && p.refunded < p.sale.amount) OutlinedButton({ refunding = p }) { Text("Refund") }
             }
@@ -656,3 +724,11 @@ fun LayoutsPage(layouts: List<StripLayout>, onBack: () -> Unit, onEdit: (StripLa
             }
         }
     }
+
+private fun bluetoothAllowed(context: android.content.Context) = android.os.Build.VERSION.SDK_INT < 31 ||
+    androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+@android.annotation.SuppressLint("MissingPermission") // checked by bluetoothAllowed()
+private fun pairedPrinters(context: android.content.Context): List<PrinterChoice> =
+    context.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.takeIf { it.isEnabled }?.bondedDevices.orEmpty()
+        .map { PrinterChoice(it.address, it.name ?: it.address, it.address) }.sortedBy { it.name }

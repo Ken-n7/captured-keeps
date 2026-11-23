@@ -286,6 +286,10 @@ Plan:
    print darkness per layout; dot-for-dot live preview. Saved in the database (v3); each save is a new version; built-in
    presets can be edited and reset; own layouts can be added and deleted (not while an unfinished event uses them).
    Not yet: logo image and overlay PNG (waiting for the real files).
+9. 🔨 Printer code ready for the real printer: Bluetooth (SPP) + USB, status check before each print (paper/cover),
+   watchdog for a frozen printer, reconnect on next job, calibration knobs (width, band height, feed, cut, chunk size, pause),
+   test page, payment acknowledgment slip (text mode), "print later" so a broken printer never blocks the booth.
+   Needs the printer to verify (DEVICE_TESTING C1–C12). Not automatic: re-printing queued jobs on reconnect (staff retry instead).
 5. Admin: event setup, attendant PIN, totals, CSV export.
 6. **When hardware arrives:** Bluetooth/USB printer output, real-camera tuning, pilot test.
 7. Cloud backup → admin web app → everything else.

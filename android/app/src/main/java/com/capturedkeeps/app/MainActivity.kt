@@ -56,13 +56,13 @@ class MainActivity : ComponentActivity() {
                                 nav = Nav.Kiosk
                             }
                         }
-                        Nav.Kiosk -> KioskScreen(app.kiosk, app.store, app.scope, filesDir, onStaff = { nav = Nav.Login })
+                        Nav.Kiosk -> KioskScreen(app.kiosk, app.store, app.scope, filesDir, print = app.printer::printStrip, onStaff = { nav = Nav.Login })
                         Nav.Login -> {
                             BackHandler { nav = Nav.Kiosk }
                             LoginScreen(actions.error, onBack = { nav = Nav.Kiosk },
                                 onSubmit = { secret -> actions.run { nav = Nav.StaffMenu(app.gate.login(app.store, secret)) } })
                         }
-                        is Nav.StaffMenu -> StaffArea(app.store, n.login, app.scope, onExit = { nav = Nav.Kiosk })
+                        is Nav.StaffMenu -> StaffArea(app.store, app.printer, n.login, app.scope, onExit = { nav = Nav.Kiosk })
                     }
                 }
             }

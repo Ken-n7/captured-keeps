@@ -142,7 +142,12 @@ class StoreTest {
         store.resolvePrint(jb.id, printed = false, now)
         assertEquals(listOf(jb.id), store.failedPrints().map { it.id })
         assertEquals(SessionState.PRINTING, store.session(b.id)!!.state)
-        store.retryPrint(jb.id, now)
+        store.retryPrint(jb.id)
+        store.printFinished(jb.id, "Printer is out of paper", now)
+        assertEquals(listOf(jb.id), store.failedPrints().map { it.id })
+        assertEquals(SessionState.PRINTING, store.session(b.id)!!.state)
+        assertEquals(3, store.retryPrint(jb.id).attempts)
+        store.printFinished(jb.id, null, now)
         assertEquals(SessionState.COMPLETED, store.session(b.id)!!.state)
         assertTrue(store.printsToConfirm().isEmpty() && store.failedPrints().isEmpty())
     }

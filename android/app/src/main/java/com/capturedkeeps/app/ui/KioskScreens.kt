@@ -60,7 +60,12 @@ private fun timeoutFor(s: KioskState): Long? = when (s) {
 
 /** Connects the screens to [KioskFlow]. [scope] outlives the screen so saves always finish. */
 @Composable
-fun KioskScreen(flow: KioskFlow, store: Store, scope: CoroutineScope, filesDir: File, onStaff: () -> Unit) {
+fun KioskScreen(
+    flow: KioskFlow, store: Store, scope: CoroutineScope, filesDir: File,
+    /** Prints a saved strip; null = printed, otherwise a message for the customer/staff. */
+    print: suspend (path: String, copies: Int) -> String?,
+    onStaff: () -> Unit,
+) {
     val state by flow.state.collectAsState()
     val context = LocalContext.current
     // Re-read when back at idle, so event edits (welcome text, video) show up without a restart.
@@ -120,9 +125,12 @@ fun KioskScreen(flow: KioskFlow, store: Store, scope: CoroutineScope, filesDir: 
             }
             is KioskState.Printing -> {
                 val bitmap = rememberStrip(s.job.imagePath)
-                // Virtual printer: "prints" after a moment. The real printer reports back here in a later step.
-                LaunchedEffect(s.job) { if (s.job.state == PrintState.SENDING) { delay(2 * SECOND); go { printResult(null) } } }
-                PrintingScreen(bitmap, s.job.lastError.takeIf { s.job.state == PrintState.FAILED }, onRetry = { go { retryPrint() } })
+                // Each send (first try or retry) is keyed by attempt, so it runs once per attempt.
+                LaunchedEffect(s.job.id, s.job.attempts) {
+                    if (s.job.state == PrintState.SENDING) scope.launch { flow.printResult(print(s.job.imagePath, s.job.copies)) }
+                }
+                PrintingScreen(bitmap, s.job.lastError.takeIf { s.job.state == PrintState.FAILED },
+                    onRetry = { go { retryPrint() } }, onLater = { go { printLater() } })
             }
             is KioskState.Done -> DoneScreen(rememberStrip(s.stripPath), s.session.pkg.copies, onDone = { go { timeout() } })
         }
@@ -272,7 +280,7 @@ fun ReviewScreen(strip: ImageBitmap?, retakesLeft: Int, failed: Boolean, onRetak
     }
 
 @Composable
-fun PrintingScreen(strip: ImageBitmap?, error: String?, onRetry: () -> Unit) =
+fun PrintingScreen(strip: ImageBitmap?, error: String?, onRetry: () -> Unit, onLater: () -> Unit = {}) =
     Row(Modifier.fillMaxSize().padding(32.dp), horizontalArrangement = Arrangement.spacedBy(48.dp), verticalAlignment = Alignment.CenterVertically) {
         StripView(strip, Modifier.fillMaxHeight())
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -283,6 +291,7 @@ fun PrintingScreen(strip: ImageBitmap?, error: String?, onRetry: () -> Unit) =
                 Text("Print didn't finish", style = MaterialTheme.typography.displayLarge)
                 Text("$error. Please call staff — you won't be charged again.", style = MaterialTheme.typography.bodyLarge)
                 Button(onRetry, Modifier.fillMaxWidth().height(64.dp)) { Text("Try printing again", style = MaterialTheme.typography.labelLarge) }
+                TextButton(onLater) { Text("Staff: print it later from Check prints", style = MaterialTheme.typography.labelLarge) }
             }
         }
     }
