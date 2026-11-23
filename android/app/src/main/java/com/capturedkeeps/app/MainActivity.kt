@@ -2,6 +2,9 @@ package com.capturedkeeps.app
 
 import android.os.Bundle
 import android.view.WindowManager
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -34,6 +37,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) // booth screen never sleeps
+        hideSystemBars()
         val app = application as App
         setContent {
             CapturedKeepsTheme {
@@ -67,5 +71,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /** Full-screen kiosk: no status/navigation bars (staff can swipe from the edge to show them briefly). */
+    private fun hideSystemBars() = WindowCompat.getInsetsController(window, window.decorView).run {
+        systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        hide(WindowInsetsCompat.Type.systemBars())
+    }
+
+    // Dialogs and the keyboard can bring the bars back; hide them again when the booth regains focus.
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemBars()
     }
 }

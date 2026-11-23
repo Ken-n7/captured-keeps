@@ -187,3 +187,4 @@
 - `ResponsiveTest`: package, payment and review screenshots at tablet portrait, 8.7" tablet, phone landscape, phone portrait.
 - On the phone: portrait idle/payment/session, rotation mid-payment kept typed text, camera-denied recovery screen (A3) checked, photos upright. Phone's auto-rotate setting restored.
 - Tests: 88 passing (core 32, data 24, app 32 screenshots/renders incl. 12 responsive).
+- Kiosk is now full-screen (status and navigation bars hidden; swipe from the edge shows them briefly). Verified on the phone.
